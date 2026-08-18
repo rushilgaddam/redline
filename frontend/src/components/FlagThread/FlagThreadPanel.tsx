@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Camera, CheckCircle2, History, Loader2, ScanLine, Send, X } from "lucide-react";
-import type { Flag, FlagDetail, Region, User } from "../../lib/types";
+import { AlertTriangle, BrainCircuit, Camera, CheckCircle2, History, Loader2, ScanLine, Send, X } from "lucide-react";
+import type { Flag, FlagDetail, KnowledgeDocument, Region, User } from "../../lib/types";
 import { api } from "../../lib/api";
 import { timeAgo } from "../../lib/format";
 import { StatusBadge } from "../StatusBadge";
@@ -26,6 +26,7 @@ export function FlagThreadPanel({
 }) {
   const [detail, setDetail] = useState<FlagDetail | null>(null);
   const [reuseFlag, setReuseFlag] = useState<FlagDetail | null>(null);
+  const [siteDoc, setSiteDoc] = useState<KnowledgeDocument | null>(null);
   const [replyText, setReplyText] = useState("");
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -39,7 +40,12 @@ export function FlagThreadPanel({
     } else {
       setReuseFlag(null);
     }
-  }, [flag.id, flag.knowledge_reuse_flag_id]);
+    if (flag.site_knowledge_document_id) {
+      api.knowledgeDocument(flag.site_knowledge_document_id).then(setSiteDoc);
+    } else {
+      setSiteDoc(null);
+    }
+  }, [flag.id, flag.knowledge_reuse_flag_id, flag.site_knowledge_document_id]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -152,6 +158,18 @@ export function FlagThreadPanel({
               <span className="font-semibold text-signal-blue">Similar case resolved before: </span>
               this was also surfaced to the technician directly, in addition to routing here.
               <div className="mt-1 italic text-ink-300">"{reuseFlag.note}"</div>
+            </div>
+          </div>
+        )}
+
+        {siteDoc && (
+          <div className="flex gap-2 rounded-lg border border-signal-violet/25 bg-signal-violet/[0.06] px-3 py-2 text-[12px] leading-relaxed text-ink-200">
+            <BrainCircuit size={14} className="mt-0.5 shrink-0 text-signal-violet" />
+            <div className="min-w-0">
+              <span className="font-semibold text-signal-violet">Grounded in site knowledge: </span>
+              <span className="font-medium text-ink-100">{siteDoc.title}</span>
+              {siteDoc.author && <span className="text-ink-400"> — {siteDoc.author}</span>}
+              <div className="mt-1 text-ink-300">{siteDoc.content}</div>
             </div>
           </div>
         )}

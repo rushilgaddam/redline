@@ -559,4 +559,46 @@ def seed(db: Session):
         ],
     )
 
+    # ---------------- Site Knowledge Agent demo data (mocked — see MOCKS.md)
+    cary_outlook = models.KnowledgeSource(
+        id=models.gen_id(), site_id=site_cary.id, type="outlook",
+        display_name="Marisol Rivera's Outlook", connected_by_user_id=marisol.id,
+        status="connected", connected_at=_now_minus(hours=72),
+    )
+    grn_teams = models.KnowledgeSource(
+        id=models.gen_id(), site_id=site_grn.id, type="teams",
+        display_name="#line-4-electrical", connected_by_user_id=daniel.id,
+        status="connected", connected_at=_now_minus(hours=50),
+    )
+    db.add_all([cary_outlook, grn_teams])
+    db.flush()
+
+    db.add(models.KnowledgeDocument(
+        id=models.gen_id(), source_id=cary_outlook.id, site_id=site_cary.id,
+        title="RE: GB-1 ground bus corrosion — Panel B", author="Marisol Rivera",
+        occurred_at=_now_minus(hours=70),
+        content=(
+            "Following up from the walkdown last week — the ground bus GB-1 on Panel B was showing "
+            "surface corrosion/oxidation at the lug connections, not a bonding failure. Maintenance "
+            "cleaned and re-torqued the lugs to 35 ft-lb and applied anti-oxidant compound. If a tech "
+            "reports the ground bus looking corroded again on this panel, it's very likely just surface "
+            "oxidation from the humidity in that corner of the building — clean and re-torque, no need "
+            "to escalate as a bonding issue unless resistance testing says otherwise."
+        ),
+        keywords=["ground bus", "gb-1", "corrosion", "corroded", "oxidation", "panel b", "lug"],
+    ))
+    db.add(models.KnowledgeDocument(
+        id=models.gen_id(), source_id=grn_teams.id, site_id=site_grn.id,
+        title="RY-6 fault light — known nuisance since CT upgrade", author="Daniel Cho",
+        occurred_at=_now_minus(hours=48),
+        content=(
+            "Heads up team — RY-6 on the relay panel has been throwing a fault/alarm light intermittently "
+            "since the rev A CT upgrade. Root cause: RY-6's own auxiliary contact wiring wasn't updated "
+            "for the new 800:5 CTs and it's tripping on a benign mismatch, not a real fault. It's cosmetic "
+            "until we get the relay reprogrammed next shutdown — don't chase it as an emergency, just note "
+            "it in the shift log."
+        ),
+        keywords=["ry-6", "relay", "fault light", "alarm", "relay panel", "ct upgrade"],
+    ))
+
     db.commit()

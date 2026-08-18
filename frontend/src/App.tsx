@@ -8,6 +8,7 @@ import { DrawingsListPage } from "./pages/DrawingsListPage";
 import { DrawingPage } from "./pages/DrawingPage";
 import { AddDrawingPage } from "./pages/AddDrawingPage";
 import { RegionEditorPage } from "./pages/RegionEditorPage";
+import { SiteKnowledgePage } from "./pages/SiteKnowledgePage";
 import { TechnicianSimulatorPage } from "./pages/TechnicianSimulatorPage";
 
 function RequireEngineer({ children }: { children: React.ReactNode }) {
@@ -61,6 +62,14 @@ export default function App() {
             element={
               <RequireEngineer>
                 <RegionEditorPage />
+              </RequireEngineer>
+            }
+          />
+          <Route
+            path="/knowledge"
+            element={
+              <RequireEngineer>
+                <SiteKnowledgePage />
               </RequireEngineer>
             }
           />

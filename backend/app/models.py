@@ -111,6 +111,7 @@ class Flag(Base):
     ai_reasoning: Mapped[str | None] = mapped_column(Text, nullable=True)
     ai_diagnosis: Mapped[str | None] = mapped_column(Text, nullable=True)
     knowledge_reuse_flag_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    site_knowledge_document_id: Mapped[str | None] = mapped_column(String, nullable=True)
     routed_to_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -141,3 +142,37 @@ class AuditEvent(Base):
     action: Mapped[str] = mapped_column(String)
     detail: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class KnowledgeSource(Base):
+    """A connected external context source for a site (Outlook, Teams, etc.).
+    See MOCKS.md — "connecting" here is a UI flow only, no real OAuth/Graph API."""
+    __tablename__ = "knowledge_sources"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_id)
+    site_id: Mapped[str] = mapped_column(ForeignKey("sites.id"))
+    type: Mapped[str] = mapped_column(String)  # outlook | teams | manual
+    display_name: Mapped[str] = mapped_column(String)
+    connected_by_user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    status: Mapped[str] = mapped_column(String, default="connected")  # connected | disconnected
+    connected_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+    documents: Mapped[list["KnowledgeDocument"]] = relationship(
+        back_populates="source", cascade="all, delete-orphan"
+    )
+
+
+class KnowledgeDocument(Base):
+    """A single ingested item (email, Teams message, note) standing in for what
+    a real sync would pull. See MOCKS.md for the real-vs-mock boundary."""
+    __tablename__ = "knowledge_documents"
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_id)
+    source_id: Mapped[str] = mapped_column(ForeignKey("knowledge_sources.id"))
+    site_id: Mapped[str] = mapped_column(ForeignKey("sites.id"))
+    title: Mapped[str] = mapped_column(String)
+    author: Mapped[str] = mapped_column(String, default="")
+    occurred_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    content: Mapped[str] = mapped_column(Text)
+    keywords: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+    source: Mapped["KnowledgeSource"] = relationship(back_populates="documents")

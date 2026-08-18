@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import models
 from .database import SessionLocal, engine
-from .routers import drawings, drawings_ingest, flags, sms, users, ws
+from .routers import drawings, drawings_ingest, flags, knowledge, sms, users, ws
 from .seed import seed
 
 UPLOADS_DIR = Path(__file__).resolve().parent / "uploads"
@@ -40,6 +40,7 @@ app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 app.include_router(drawings.router)
 app.include_router(drawings_ingest.router)
 app.include_router(flags.router)
+app.include_router(knowledge.router)
 app.include_router(sms.router)
 app.include_router(users.router)
 app.include_router(ws.router)

@@ -50,6 +50,7 @@ export interface Flag {
   ai_reasoning: string | null;
   ai_diagnosis: string | null;
   knowledge_reuse_flag_id: string | null;
+  site_knowledge_document_id: string | null;
   routed_to_user_id: string | null;
   created_at: string;
   resolved_at: string | null;
@@ -122,4 +123,28 @@ export interface Site {
   id: string;
   name: string;
   org_id: string;
+}
+
+export type KnowledgeSourceType = "outlook" | "teams" | "manual";
+
+export interface KnowledgeSource {
+  id: string;
+  site_id: string;
+  type: KnowledgeSourceType;
+  display_name: string;
+  connected_by_user_id: string;
+  status: "connected" | "disconnected";
+  connected_at: string;
+}
+
+export interface KnowledgeDocument {
+  id: string;
+  source_id: string;
+  site_id: string;
+  title: string;
+  author: string;
+  occurred_at: string | null;
+  content: string;
+  keywords: string[];
+  created_at: string;
 }

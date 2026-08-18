@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
   ArrowRight,
+  BrainCircuit,
   Camera,
   Inbox,
   LayoutGrid,
@@ -48,6 +49,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
       { id: "go-inbox", group: "Go to", icon: <Inbox size={15} />, label: "Inbox", action: () => navigate("/inbox") },
       { id: "go-drawings", group: "Go to", icon: <LayoutGrid size={15} />, label: "Drawings", action: () => navigate("/drawings") },
       { id: "go-add", group: "Go to", icon: <UploadCloud size={15} />, label: "Add drawing", action: () => navigate("/drawings/new") },
+      { id: "go-knowledge", group: "Go to", icon: <BrainCircuit size={15} />, label: "Site Knowledge", action: () => navigate("/knowledge") },
       { id: "go-tech", group: "Go to", icon: <Smartphone size={15} />, label: "Technician simulator", action: () => navigate("/technician") },
     ];
 

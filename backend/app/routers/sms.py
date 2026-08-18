@@ -89,8 +89,15 @@ async def sms_inbound(body: schemas.SmsInboundIn, db: Session = Depends(get_db))
             candidates=candidates,
         )
 
+    site_documents = db.execute(
+        select(models.KnowledgeDocument)
+        .join(models.KnowledgeSource, models.KnowledgeDocument.source_id == models.KnowledgeSource.id)
+        .where(models.KnowledgeDocument.site_id == drawing.site_id)
+        .where(models.KnowledgeSource.status == "connected")
+    ).scalars().all()
+
     photo_hint = PHOTO_HINTS.get(body.photo_ref or "", "")
-    vision = vision_agent.run_vision_agent(body.text, photo_hint, drawing.regions)
+    vision = vision_agent.run_vision_agent(body.text, photo_hint, drawing.regions, site_documents)
 
     needs_review = drawing.confidence_floor_status == "needs_review"
     answered = vision.supported and not needs_review
@@ -110,6 +117,7 @@ async def sms_inbound(body: schemas.SmsInboundIn, db: Session = Depends(get_db))
         ai_confidence=vision.confidence, ai_reasoning=vision.reasoning,
         ai_diagnosis=vision.diagnosis if answered else None,
         knowledge_reuse_flag_id=reuse_match.id if reuse_match else None,
+        site_knowledge_document_id=vision.site_knowledge_document.id if (answered and vision.site_knowledge_document) else None,
         routed_to_user_id=routed_to,
     )
     db.add(flag)
@@ -130,6 +138,8 @@ async def sms_inbound(body: schemas.SmsInboundIn, db: Session = Depends(get_db))
 
     if answered:
         ai_text = f"Tentative answer ({vision.confidence:.0f}% confidence) — {vision.diagnosis}"
+        if vision.site_knowledge_document:
+            ai_text += f" (cross-referenced with \"{vision.site_knowledge_document.title}\")"
         reply_parts.append(ai_text)
         db.add(models.Message(id=models.gen_id(), flag_id=flag.id, sender="ai", sender_name="Redline AI", text=ai_text))
     else:

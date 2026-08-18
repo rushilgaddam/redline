@@ -5,6 +5,9 @@ import type {
   Flag,
   FlagDetail,
   IngestResult,
+  KnowledgeDocument,
+  KnowledgeSource,
+  KnowledgeSourceType,
   Region,
   Site,
   SmsInboundResult,
@@ -104,4 +107,32 @@ export const api = {
     drawing_id_override?: string | null;
     site_id?: string | null;
   }) => req<SmsInboundResult>(`/sms/inbound`, { method: "POST", body: JSON.stringify(payload) }),
+
+  knowledgeSources: (siteId?: string) =>
+    req<KnowledgeSource[]>(`/knowledge/sources${siteId ? `?site_id=${siteId}` : ""}`),
+  connectKnowledgeSource: (payload: {
+    site_id: string;
+    type: KnowledgeSourceType;
+    display_name: string;
+    connected_by_user_id: string;
+  }) => req<KnowledgeSource>(`/knowledge/sources`, { method: "POST", body: JSON.stringify(payload) }),
+  disconnectKnowledgeSource: (id: string) =>
+    req<KnowledgeSource>(`/knowledge/sources/${id}/disconnect`, { method: "POST" }),
+  knowledgeDocuments: (params: { siteId?: string; sourceId?: string } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.siteId) qs.set("site_id", params.siteId);
+    if (params.sourceId) qs.set("source_id", params.sourceId);
+    const s = qs.toString();
+    return req<KnowledgeDocument[]>(`/knowledge/documents${s ? `?${s}` : ""}`);
+  },
+  ingestKnowledgeDocument: (payload: {
+    source_id: string;
+    title: string;
+    author?: string;
+    occurred_at?: string | null;
+    content: string;
+    keywords?: string[];
+  }) => req<KnowledgeDocument>(`/knowledge/documents`, { method: "POST", body: JSON.stringify(payload) }),
+  deleteKnowledgeDocument: (id: string) => req<{ ok: boolean }>(`/knowledge/documents/${id}`, { method: "DELETE" }),
+  knowledgeDocument: (id: string) => req<KnowledgeDocument>(`/knowledge/documents/${id}`),
 };

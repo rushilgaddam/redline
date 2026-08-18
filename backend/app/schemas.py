@@ -54,6 +54,7 @@ class FlagOut(BaseModel):
     ai_reasoning: str | None
     ai_diagnosis: str | None
     knowledge_reuse_flag_id: str | None
+    site_knowledge_document_id: str | None
     routed_to_user_id: str | None
     created_at: datetime
     resolved_at: datetime | None
@@ -127,3 +128,43 @@ class RegionsUpdateIn(BaseModel):
 class IngestWarningsOut(BaseModel):
     drawing: DrawingDetailOut
     warnings: list[str]
+
+
+class KnowledgeSourceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    site_id: str
+    type: str
+    display_name: str
+    connected_by_user_id: str
+    status: str
+    connected_at: datetime
+
+
+class KnowledgeSourceCreateIn(BaseModel):
+    site_id: str
+    type: str
+    display_name: str
+    connected_by_user_id: str
+
+
+class KnowledgeDocumentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    source_id: str
+    site_id: str
+    title: str
+    author: str
+    occurred_at: datetime | None
+    content: str
+    keywords: list[str]
+    created_at: datetime
+
+
+class KnowledgeDocumentCreateIn(BaseModel):
+    source_id: str
+    title: str
+    author: str = ""
+    occurred_at: datetime | None = None
+    content: str
+    keywords: list[str] = []

@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { Inbox, LayoutGrid, Smartphone, ChevronDown, Radio, UploadCloud, Search } from "lucide-react";
+import { Inbox, LayoutGrid, Smartphone, ChevronDown, Radio, UploadCloud, Search, BrainCircuit } from "lucide-react";
 import { motion } from "framer-motion";
 import clsx from "clsx";
 import { useEffect, useState } from "react";
@@ -81,6 +81,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <NavItem to="/inbox" icon={<Inbox size={16} />} label="Inbox" />
           <NavItem to="/drawings" icon={<LayoutGrid size={16} />} label="Drawings" />
           <NavItem to="/drawings/new" icon={<UploadCloud size={16} />} label="Add drawing" />
+          <NavItem to="/knowledge" icon={<BrainCircuit size={16} />} label="Site Knowledge" />
         </nav>
 
         <div className="mt-auto space-y-2">

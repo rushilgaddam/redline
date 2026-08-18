@@ -12,6 +12,7 @@ import re
 from dataclasses import dataclass, field
 
 from .. import models
+from . import site_knowledge
 
 CONFIDENCE_THRESHOLD = 65
 
@@ -42,9 +43,15 @@ class VisionResult:
     diagnosis: str | None
     supported: bool
     matched_issue: dict | None = field(default=None)
+    site_knowledge_document: models.KnowledgeDocument | None = field(default=None)
 
 
-def run_vision_agent(note_text: str, photo_hint: str, regions: list[models.Region]) -> VisionResult:
+def run_vision_agent(
+    note_text: str,
+    photo_hint: str,
+    regions: list[models.Region],
+    site_documents: list[models.KnowledgeDocument] | None = None,
+) -> VisionResult:
     if not regions:
         return VisionResult(None, 0, "Drawing has no decomposed regions yet.", None, False)
 
@@ -78,9 +85,11 @@ def run_vision_agent(note_text: str, photo_hint: str, regions: list[models.Regio
     jitter = _stable_jitter(note_text + top_region.id)
     confidence = max(4, min(97, top_score + 30 + jitter))
 
-    supported = confidence >= CONFIDENCE_THRESHOLD and top_issue is not None
+    known_issue_supported = confidence >= CONFIDENCE_THRESHOLD and top_issue is not None
+    site_match = site_knowledge.find_relevant_document(note_text, photo_hint, site_documents or [])
+    site_supported = (not known_issue_supported) and site_match is not None and site_match.confidence >= CONFIDENCE_THRESHOLD
 
-    if supported:
+    if known_issue_supported:
         reasoning = (
             f"Photo/note language overlaps strongly with \"{top_region.label}\" "
             f"({top_region.description[:80]}...) and matches a known failure pattern "
@@ -88,18 +97,30 @@ def run_vision_agent(note_text: str, photo_hint: str, regions: list[models.Regio
         )
         diagnosis = top_issue["diagnosis"]
         confidence = max(confidence, top_issue.get("confidence", confidence))
-    elif top_score > 0:
+        return VisionResult(top_region, round(confidence, 1), reasoning, diagnosis, True, top_issue, None)
+
+    if site_supported:
+        src_label = site_knowledge.source_label(site_match.document.source.type)
         reasoning = (
-            f"Best region match is \"{top_region.label}\", but the drawing's context "
-            f"block doesn't contain a grounded explanation for this symptom — "
-            f"declining to guess."
+            f"Photo/note language overlaps with \"{top_region.label}\", and cross-references "
+            f"{src_label} from this site — \"{site_match.document.title}\" — that speaks directly "
+            f"to this symptom."
         )
-        diagnosis = None
+        return VisionResult(
+            top_region, round(site_match.confidence, 1), reasoning, site_match.excerpt,
+            True, None, site_match.document,
+        )
+
+    if top_score > 0:
+        reasoning = (
+            f"Best region match is \"{top_region.label}\", but neither the drawing's context "
+            f"block nor this site's connected knowledge sources contain a grounded explanation "
+            f"for this symptom — declining to guess."
+        )
     else:
         reasoning = (
             "No region on this drawing shares enough language with the photo/note "
             "to localize the issue confidently."
         )
-        diagnosis = None
 
-    return VisionResult(top_region, round(confidence, 1), reasoning, diagnosis, supported, top_issue)
+    return VisionResult(top_region, round(confidence, 1), reasoning, None, False, top_issue)
