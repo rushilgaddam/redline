@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Camera, CheckCircle2, ChevronDown, Loader2, QrCode, Send, Signal, Wifi, X } from "lucide-react";
+import { ArrowLeft, Camera, CheckCircle2, ChevronDown, Loader2, MapPin, QrCode, Send, Signal, Wifi, X } from "lucide-react";
 import clsx from "clsx";
 import { api } from "../lib/api";
 import { useStore } from "../lib/store";
-import type { ConversationItem, DrawingSummary, User } from "../lib/types";
+import type { ConversationItem, DrawingSummary, Site, User } from "../lib/types";
 import { MOCK_PHOTOS } from "../lib/mockPhotos";
 import { PhotoCard } from "../components/PhotoCard";
 import { formatClock, formatPhone } from "../lib/format";
@@ -28,6 +28,8 @@ export function TechnicianSimulatorPage() {
   const technicians = useMemo(() => users.filter((u) => u.role === "technician"), [users]);
 
   const [technician, setTechnician] = useState<User | null>(null);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [activeSiteId, setActiveSiteId] = useState<string | null>(null);
   const [conversation, setConversation] = useState<ConversationItem[]>([]);
   const [localBubbles, setLocalBubbles] = useState<LocalBubble[]>([]);
   const [text, setText] = useState("");
@@ -41,13 +43,28 @@ export function TechnicianSimulatorPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    api.sites().then(setSites);
+  }, []);
+
+  useEffect(() => {
     if (technicians.length && !technician) setTechnician(technicians[0]);
   }, [technicians, technician]);
+
+  const technicianSites = useMemo(
+    () => sites.filter((s) => technician?.site_ids.includes(s.id)),
+    [sites, technician],
+  );
+
+  useEffect(() => {
+    if (!technician) return;
+    setActiveSiteId((prev) => (prev && technician.site_ids.includes(prev) ? prev : (technician.site_ids[0] ?? null)));
+  }, [technician]);
 
   useEffect(() => {
     if (!technician) return;
     setLocalBubbles([]);
     setCandidates([]);
+    setTagDrawing(null);
     api.conversation(technician.id).then(setConversation);
   }, [technician]);
 
@@ -76,6 +93,7 @@ export function TechnicianSimulatorPage() {
         text: messageText,
         photo_ref: photoRef,
         asset_tag_drawing_id: overrideDrawingId ?? tagDrawing?.id ?? null,
+        site_id: activeSiteId,
       });
       setLocalBubbles((b) => [
         ...b,
@@ -131,6 +149,10 @@ export function TechnicianSimulatorPage() {
   }, [conversation, localBubbles]);
 
   const liveTagDrawing = tagDrawing ? (drawings.find((d) => d.id === tagDrawing.id) ?? tagDrawing) : null;
+  const drawingsAtSite = useMemo(
+    () => drawings.filter((d) => d.site_id === activeSiteId),
+    [drawings, activeSiteId],
+  );
 
   return (
     <div className="flex h-screen w-screen items-center justify-center bg-ink-950 bg-grain">
@@ -141,8 +163,16 @@ export function TechnicianSimulatorPage() {
         <ArrowLeft size={14} /> Engineer view
       </button>
 
-      <div className="absolute right-6 top-6 w-64">
+      <div className="absolute right-6 top-6 w-64 space-y-2">
         <TechnicianPicker technicians={technicians} current={technician} onSelect={setTechnician} />
+        <PlantPicker
+          sites={technicianSites}
+          current={sites.find((s) => s.id === activeSiteId) ?? null}
+          onSelect={(s) => {
+            setActiveSiteId(s.id);
+            setTagDrawing(null);
+          }}
+        />
       </div>
 
       {/* Phone frame */}
@@ -338,7 +368,13 @@ export function TechnicianSimulatorPage() {
 
           {tagPicker && (
             <div className="mt-2 max-h-40 space-y-1 overflow-y-auto rounded-xl border border-ink-700 bg-ink-900 p-2">
-              {drawings.map((d) => (
+              <div className="px-2 pb-1 text-[9.5px] uppercase tracking-wide text-ink-500">
+                Equipment tags at {sites.find((s) => s.id === activeSiteId)?.name ?? "this plant"}
+              </div>
+              {drawingsAtSite.length === 0 && (
+                <div className="px-2 py-2 text-[11px] text-ink-500">No drawings at this plant yet.</div>
+              )}
+              {drawingsAtSite.map((d) => (
                 <button
                   key={d.id}
                   onClick={() => {
@@ -394,6 +430,63 @@ function TechnicianPicker({
             >
               {t.name}
               <span className="ml-auto font-mono text-[10px] text-ink-500">{formatPhone(t.phone)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PlantPicker({
+  sites,
+  current,
+  onSelect,
+}: {
+  sites: Site[];
+  current: Site | null;
+  onSelect: (s: Site) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  if (sites.length <= 1) {
+    return (
+      <div className="flex w-full items-center gap-2 rounded-lg border border-ink-700 bg-ink-900/70 px-3 py-2 backdrop-blur-sm">
+        <MapPin size={13} className="shrink-0 text-signal-teal" />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[11px] text-ink-400">Plant</div>
+          <div className="truncate text-[12px] font-medium text-ink-100">{current?.name ?? "—"}</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 rounded-lg border border-ink-700 bg-ink-900/70 px-3 py-2 text-left backdrop-blur-sm"
+      >
+        <MapPin size={13} className="shrink-0 text-signal-teal" />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[11px] text-ink-400">Plant</div>
+          <div className="truncate text-[12px] font-medium text-ink-100">{current?.name ?? "Select plant"}</div>
+        </div>
+        <ChevronDown size={13} className="text-ink-400" />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1.5 w-full overflow-hidden rounded-lg border border-ink-600 bg-ink-850 shadow-2xl">
+          {sites.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => {
+                onSelect(s);
+                setOpen(false);
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] text-ink-100 hover:bg-ink-700"
+            >
+              <MapPin size={12} className="shrink-0 text-signal-teal" />
+              {s.name}
             </button>
           ))}
         </div>

@@ -14,6 +14,7 @@ class UserOut(BaseModel):
     title: str | None = None
     avatar_color: str
     out_of_office: bool
+    site_ids: list[str] = []
 
 
 class RegionOut(BaseModel):
@@ -65,6 +66,7 @@ class FlagDetailOut(FlagOut):
 class DrawingSummaryOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
+    site_id: str
     drawing_number: str
     revision: str
     title: str
@@ -90,6 +92,7 @@ class SmsInboundIn(BaseModel):
     photo_ref: str | None = None
     asset_tag_drawing_id: str | None = None
     drawing_id_override: str | None = None
+    site_id: str | None = None
 
 
 class SmsInboundOut(BaseModel):

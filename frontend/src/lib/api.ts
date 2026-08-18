@@ -102,5 +102,6 @@ export const api = {
     photo_ref?: string | null;
     asset_tag_drawing_id?: string | null;
     drawing_id_override?: string | null;
+    site_id?: string | null;
   }) => req<SmsInboundResult>(`/sms/inbound`, { method: "POST", body: JSON.stringify(payload) }),
 };

@@ -72,8 +72,12 @@ async def sms_inbound(body: schemas.SmsInboundIn, db: Session = Depends(get_db))
     if not technician or technician.role != "technician":
         raise HTTPException(404, "Unknown technician")
 
+    tech_site_ids = technician.site_ids or []
+    current_site_id = body.site_id if body.site_id in tech_site_ids else (
+        tech_site_ids[0] if len(tech_site_ids) == 1 else None
+    )
     drawing, method, candidates = equipment_resolver.resolve_drawing(
-        db, technician.id, body.asset_tag_drawing_id or body.drawing_id_override, technician.site_ids or []
+        db, technician.id, body.asset_tag_drawing_id or body.drawing_id_override, tech_site_ids, current_site_id
     )
 
     if not drawing:

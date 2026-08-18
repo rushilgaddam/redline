@@ -20,8 +20,17 @@ def resolve_drawing(
     technician_id: str,
     asset_tag_drawing_id: str | None,
     site_ids: list[str],
+    current_site_id: str | None = None,
 ) -> tuple[models.Drawing | None, str, list[models.Drawing]]:
-    """Returns (resolved_drawing_or_None, method, candidates_if_ambiguous)."""
+    """Returns (resolved_drawing_or_None, method, candidates_if_ambiguous).
+
+    `current_site_id` is the plant the technician is physically standing in right
+    now (known for a single-site technician, or told to us for a multi-site one).
+    It scopes the fallback numbered list so a technician covering more than one
+    plant is never asked to disambiguate against equipment at a site they're not
+    even at — that's the whole point of a QR tag being unambiguous in the first
+    place, and the fallback should be just as unambiguous by plant.
+    """
 
     if asset_tag_drawing_id:
         drawing = db.get(models.Drawing, asset_tag_drawing_id)
@@ -40,7 +49,8 @@ def resolve_drawing(
         if drawing:
             return drawing, "recent_context", []
 
+    scoped_site_ids = [current_site_id] if current_site_id else site_ids
     candidates = db.execute(
-        select(models.Drawing).where(models.Drawing.site_id.in_(site_ids))
+        select(models.Drawing).where(models.Drawing.site_id.in_(scoped_site_ids))
     ).scalars().all()
     return None, "fallback_ask", list(candidates)

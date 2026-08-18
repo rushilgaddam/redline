@@ -13,6 +13,7 @@ export interface User {
   title: string | null;
   avatar_color: string;
   out_of_office: boolean;
+  site_ids: string[];
 }
 
 export interface Region {
@@ -60,6 +61,7 @@ export interface FlagDetail extends Flag {
 
 export interface DrawingSummary {
   id: string;
+  site_id: string;
   drawing_number: string;
   revision: string;
   title: string;
