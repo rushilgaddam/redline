@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Camera, ChevronDown, Loader2, QrCode, Send, Signal, Wifi, X } from "lucide-react";
+import { ArrowLeft, Camera, CheckCircle2, ChevronDown, Loader2, QrCode, Send, Signal, Wifi, X } from "lucide-react";
 import clsx from "clsx";
 import { api } from "../lib/api";
 import { useStore } from "../lib/store";
@@ -16,11 +16,15 @@ interface LocalBubble {
   photoRef?: string | null;
   at: string;
   pending?: boolean;
+  senderName?: string | null;
+  drawingNumber?: string | null;
+  drawingTitle?: string | null;
+  regionLabel?: string | null;
 }
 
 export function TechnicianSimulatorPage() {
   const navigate = useNavigate();
-  const { users, drawings, upsertFlag } = useStore();
+  const { users, drawings, upsertFlag, upsertDrawing } = useStore();
   const technicians = useMemo(() => users.filter((u) => u.role === "technician"), [users]);
 
   const [technician, setTechnician] = useState<User | null>(null);
@@ -33,6 +37,7 @@ export function TechnicianSimulatorPage() {
   const [tagPicker, setTagPicker] = useState(false);
   const [candidates, setCandidates] = useState<DrawingSummary[]>([]);
   const [sending, setSending] = useState(false);
+  const [closing, setClosing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -89,6 +94,27 @@ export function TechnicianSimulatorPage() {
     }
   }
 
+  async function markComplete() {
+    if (!tagDrawing || tagDrawing.status === "closed" || !technician) return;
+    setClosing(true);
+    try {
+      const updated = await api.closeDrawing(tagDrawing.id, technician.id);
+      upsertDrawing(updated);
+      setTagDrawing((prev) => (prev ? { ...prev, ...updated } : prev));
+      setLocalBubbles((b) => [
+        ...b,
+        {
+          id: crypto.randomUUID(),
+          sender: "incoming",
+          text: `${updated.drawing_number} marked as fully assembled. Thanks for the update — reply here anytime if something still needs a look.`,
+          at: new Date().toISOString(),
+        },
+      ]);
+    } finally {
+      setClosing(false);
+    }
+  }
+
   const bubbles = useMemo<LocalBubble[]>(() => {
     const fromServer: LocalBubble[] = conversation.map((c) => ({
       id: `${c.flag_id}-${c.created_at}-${c.sender}`,
@@ -96,9 +122,15 @@ export function TechnicianSimulatorPage() {
       text: c.text,
       photoRef: c.photo_ref,
       at: c.created_at,
+      senderName: c.sender === "technician" ? null : c.sender_name,
+      drawingNumber: c.drawing_number,
+      drawingTitle: c.drawing_title,
+      regionLabel: c.region_label,
     }));
     return [...fromServer, ...localBubbles];
   }, [conversation, localBubbles]);
+
+  const liveTagDrawing = tagDrawing ? (drawings.find((d) => d.id === tagDrawing.id) ?? tagDrawing) : null;
 
   return (
     <div className="flex h-screen w-screen items-center justify-center bg-ink-950 bg-grain">
@@ -140,6 +172,18 @@ export function TechnicianSimulatorPage() {
           {bubbles.map((b) => (
             <div key={b.id} className={clsx("flex", b.sender === "technician" ? "justify-end" : "justify-start")}>
               <div className="max-w-[78%]">
+                {b.sender === "incoming" && (b.senderName || b.drawingNumber) && (
+                  <div className="mb-1 flex items-center gap-1.5 px-1 text-[10.5px] text-ink-400">
+                    {b.senderName && <span className="font-medium text-ink-200">{b.senderName}</span>}
+                    {b.senderName && b.drawingNumber && <span className="text-ink-600">·</span>}
+                    {b.drawingNumber && (
+                      <span className="font-mono">
+                        {b.drawingNumber}
+                        {b.regionLabel ? ` — ${b.regionLabel}` : b.drawingTitle ? ` — ${b.drawingTitle}` : ""}
+                      </span>
+                    )}
+                  </div>
+                )}
                 <div
                   className={clsx(
                     "rounded-2xl px-3.5 py-2 text-[13.5px] leading-relaxed",
@@ -194,10 +238,30 @@ export function TechnicianSimulatorPage() {
         </div>
 
         <div className="border-t border-white/10 bg-ink-950 p-2.5">
-          {tagDrawing && (
-            <div className="mb-1.5 flex items-center gap-1.5 rounded-lg bg-signal-teal/10 px-2 py-1 text-[10.5px] text-signal-teal">
+          {liveTagDrawing && (
+            <div
+              className={clsx(
+                "mb-1.5 flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10.5px]",
+                liveTagDrawing.status === "closed" ? "bg-ink-700 text-ink-300" : "bg-signal-teal/10 text-signal-teal",
+              )}
+            >
               <QrCode size={11} />
-              Scanned tag: {tagDrawing.drawing_number}
+              Scanned tag: {liveTagDrawing.drawing_number}
+              {liveTagDrawing.status === "closed" && (
+                <span className="rounded-full bg-ink-600 px-1.5 py-0.5 text-[9px] font-medium text-ink-200">
+                  assembly complete
+                </span>
+              )}
+              {liveTagDrawing.status !== "closed" && (
+                <button
+                  onClick={markComplete}
+                  disabled={closing}
+                  className="flex items-center gap-1 rounded-full border border-signal-teal/30 px-1.5 py-0.5 text-[9.5px] font-medium text-signal-teal transition hover:bg-signal-teal/15 disabled:opacity-50"
+                >
+                  {closing ? <Loader2 size={9} className="animate-spin" /> : <CheckCircle2 size={9} />}
+                  Mark complete
+                </button>
+              )}
               <button onClick={() => setTagDrawing(null)} className="ml-auto text-ink-400 hover:text-white">
                 <X size={11} />
               </button>

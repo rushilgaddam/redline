@@ -311,9 +311,17 @@ def _seed_flag(db: Session, *, drawing_id, region, x, y, status, source, technic
         resolved_at=_now_minus(hours=resolved_hours_ago) if resolved_hours_ago is not None else None,
     )
     db.add(flag)
+    technician = db.get(models.User, technician_id) if technician_id else None
+    engineer = db.get(models.User, routed_to) if routed_to else None
+    sender_names = {
+        "technician": technician.name if technician else None,
+        "engineer": engineer.name if engineer else None,
+        "ai": "Redline AI",
+        "system": "Redline",
+    }
     for m in thread:
-        db.add(models.Message(id=models.gen_id(), flag_id=flag.id, sender=m[0], text=m[1],
-                               photo_ref=m[2] if len(m) > 2 else None,
+        db.add(models.Message(id=models.gen_id(), flag_id=flag.id, sender=m[0], sender_name=sender_names.get(m[0]),
+                               text=m[1], photo_ref=m[2] if len(m) > 2 else None,
                                created_at=_now_minus(hours=m[3] if len(m) > 3 else created_hours_ago)))
     return flag
 
@@ -445,7 +453,7 @@ def seed(db: Session):
                             created_at=_now_minus(hours=41))
         db.add(flag)
         db.flush()
-        db.add(models.Message(id=models.gen_id(), flag_id=flag.id, sender="ai", text=f["finding"],
+        db.add(models.Message(id=models.gen_id(), flag_id=flag.id, sender="ai", sender_name="Redline AI", text=f["finding"],
                                created_at=_now_minus(hours=41)))
 
     # ---------------- Live seeded flags (variety across status/discipline for a populated inbox)

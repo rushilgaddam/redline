@@ -6,6 +6,8 @@ import { LoginPage } from "./pages/LoginPage";
 import { InboxPage } from "./pages/InboxPage";
 import { DrawingsListPage } from "./pages/DrawingsListPage";
 import { DrawingPage } from "./pages/DrawingPage";
+import { AddDrawingPage } from "./pages/AddDrawingPage";
+import { RegionEditorPage } from "./pages/RegionEditorPage";
 import { TechnicianSimulatorPage } from "./pages/TechnicianSimulatorPage";
 
 function RequireEngineer({ children }: { children: React.ReactNode }) {
@@ -39,10 +41,26 @@ export default function App() {
             }
           />
           <Route
+            path="/drawings/new"
+            element={
+              <RequireEngineer>
+                <AddDrawingPage />
+              </RequireEngineer>
+            }
+          />
+          <Route
             path="/drawings/:drawingId"
             element={
               <RequireEngineer>
                 <DrawingPage />
+              </RequireEngineer>
+            }
+          />
+          <Route
+            path="/drawings/:drawingId/regions"
+            element={
+              <RequireEngineer>
+                <RegionEditorPage />
               </RequireEngineer>
             }
           />

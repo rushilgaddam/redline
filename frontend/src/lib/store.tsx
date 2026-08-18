@@ -1,15 +1,24 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Camera, ScanLine } from "lucide-react";
+import { Camera, CheckCircle2, ScanLine } from "lucide-react";
 import { api } from "./api";
 import { useInboxSocket } from "./ws";
 import type { DrawingSummary, Flag, User } from "./types";
 
-interface Toast {
+interface FlagToast {
+  kind: "flag";
   id: string;
   flag: Flag;
   drawingLabel: string;
 }
+
+interface DrawingToast {
+  kind: "drawing";
+  id: string;
+  drawing: DrawingSummary;
+}
+
+type Toast = FlagToast | DrawingToast;
 
 interface StoreState {
   drawings: DrawingSummary[];
@@ -19,6 +28,7 @@ interface StoreState {
   connected: boolean;
   refreshDrawings: () => Promise<void>;
   upsertFlag: (f: Flag) => void;
+  upsertDrawing: (d: DrawingSummary) => void;
   userById: (id: string | null | undefined) => User | undefined;
   drawingById: (id: string | undefined) => DrawingSummary | undefined;
 }
@@ -55,15 +65,33 @@ export function DataProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const upsertDrawing = useCallback((d: DrawingSummary) => {
+    setDrawings((prev) => {
+      const idx = prev.findIndex((x) => x.id === d.id);
+      if (idx === -1) return [...prev, d];
+      const next = [...prev];
+      next[idx] = { ...next[idx], ...d };
+      return next;
+    });
+  }, []);
+
+  function pushToast(toast: Toast) {
+    setToasts((t) => [...t, toast]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== toast.id)), 5500);
+  }
+
   useInboxSocket(
     (evt) => {
+      if (evt.event === "drawing_updated") {
+        upsertDrawing(evt.payload);
+        pushToast({ kind: "drawing", id: crypto.randomUUID(), drawing: evt.payload });
+        return;
+      }
       upsertFlag(evt.payload);
       if (evt.event === "flag_created") {
-        const id = crypto.randomUUID();
         const d = drawings.find((dd) => dd.id === evt.payload.drawing_id);
         const drawingLabel = d ? `${d.drawing_number} Rev ${d.revision}` : "";
-        setToasts((t) => [...t, { id, flag: evt.payload, drawingLabel }]);
-        setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 5500);
+        pushToast({ kind: "flag", id: crypto.randomUUID(), flag: evt.payload, drawingLabel });
       }
     },
     (isConnected) => setConnected(isConnected),
@@ -73,8 +101,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const drawingById = useCallback((id: string | undefined) => drawings.find((d) => d.id === id), [drawings]);
 
   const value = useMemo<StoreState>(
-    () => ({ drawings, users, flags, loading, connected, refreshDrawings: load, upsertFlag, userById, drawingById }),
-    [drawings, users, flags, loading, connected, load, upsertFlag, userById, drawingById],
+    () => ({
+      drawings, users, flags, loading, connected,
+      refreshDrawings: load, upsertFlag, upsertDrawing, userById, drawingById,
+    }),
+    [drawings, users, flags, loading, connected, load, upsertFlag, upsertDrawing, userById, drawingById],
   );
 
   return (
@@ -82,25 +113,49 @@ export function DataProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="pointer-events-none fixed right-4 top-4 z-50 flex flex-col gap-2">
         <AnimatePresence>
-          {toasts.map((t) => (
-            <motion.div
-              key={t.id}
-              initial={{ opacity: 0, x: 40, scale: 0.96 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 20, scale: 0.96 }}
-              className="pointer-events-auto flex w-72 items-start gap-2.5 rounded-xl border border-ink-600 bg-ink-850/95 p-3 shadow-2xl backdrop-blur-md"
-            >
-              <div className="mt-0.5 rounded-md bg-signal-coral/15 p-1.5 text-signal-coral">
-                {t.flag.source === "sms" ? <Camera size={13} /> : <ScanLine size={13} />}
-              </div>
-              <div className="min-w-0">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-300">
-                  New flag · {t.drawingLabel}
+          {toasts.map((t) =>
+            t.kind === "flag" ? (
+              <motion.div
+                key={t.id}
+                initial={{ opacity: 0, x: 40, scale: 0.96 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: 20, scale: 0.96 }}
+                className="pointer-events-auto flex w-72 items-start gap-2.5 rounded-xl border border-ink-600 bg-ink-850/95 p-3 shadow-2xl backdrop-blur-md"
+              >
+                <div className="mt-0.5 rounded-md bg-signal-coral/15 p-1.5 text-signal-coral">
+                  {t.flag.source === "sms" ? <Camera size={13} /> : <ScanLine size={13} />}
                 </div>
-                <div className="truncate text-[12.5px] text-ink-100">{t.flag.note}</div>
-              </div>
-            </motion.div>
-          ))}
+                <div className="min-w-0">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-300">
+                    New flag · {t.drawingLabel}
+                  </div>
+                  <div className="truncate text-[12.5px] text-ink-100">{t.flag.note}</div>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key={t.id}
+                initial={{ opacity: 0, x: 40, scale: 0.96 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: 20, scale: 0.96 }}
+                className="pointer-events-auto flex w-72 items-start gap-2.5 rounded-xl border border-ink-600 bg-ink-850/95 p-3 shadow-2xl backdrop-blur-md"
+              >
+                <div
+                  className={`mt-0.5 rounded-md p-1.5 ${t.drawing.status === "closed" ? "bg-signal-teal/15 text-signal-teal" : "bg-signal-amber/15 text-signal-amber"}`}
+                >
+                  <CheckCircle2 size={13} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-ink-300">
+                    {t.drawing.drawing_number} Rev {t.drawing.revision}
+                  </div>
+                  <div className="truncate text-[12.5px] text-ink-100">
+                    {t.drawing.status === "closed" ? "Marked fully assembled by technician" : "Reopened by a new technician flag"}
+                  </div>
+                </div>
+              </motion.div>
+            ),
+          )}
         </AnimatePresence>
       </div>
     </StoreContext.Provider>

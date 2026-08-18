@@ -28,6 +28,7 @@ export interface Region {
 export interface Message {
   id: string;
   sender: MessageSender;
+  sender_name: string | null;
   text: string;
   photo_ref: string | null;
   created_at: string;
@@ -65,10 +66,12 @@ export interface DrawingSummary {
   discipline: string;
   primary_author_id: string;
   confidence_floor_status: string;
+  status: "active" | "closed";
+  closed_at: string | null;
 }
 
 export type Shape = {
-  type: "rect" | "line" | "circle" | "path" | "text" | "polyline";
+  type: "rect" | "line" | "circle" | "path" | "text" | "polyline" | "image";
   class: string;
   [key: string]: unknown;
 };
@@ -96,12 +99,21 @@ export interface SmsInboundResult {
 export interface ConversationItem {
   flag_id: string;
   drawing_id: string;
+  drawing_number: string | null;
+  drawing_title: string | null;
+  region_label: string | null;
   status: FlagStatus;
   source: FlagSource;
   sender: MessageSender;
+  sender_name: string | null;
   text: string;
   photo_ref: string | null;
   created_at: string;
+}
+
+export interface IngestResult {
+  drawing: DrawingDetail;
+  warnings: string[];
 }
 
 export interface Site {

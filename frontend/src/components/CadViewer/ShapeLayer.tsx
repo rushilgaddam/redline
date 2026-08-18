@@ -96,6 +96,19 @@ export function ShapeLayer({ shapes }: { shapes: Shape[] }) {
             );
           case "path":
             return <path key={i} d={s.d as string} {...common} />;
+          case "image":
+            return (
+              <image
+                key={i}
+                href={s.href as string}
+                x={s.x as number}
+                y={s.y as number}
+                width={s.w as number}
+                height={s.h as number}
+                preserveAspectRatio="xMidYMid slice"
+                opacity={0.92}
+              />
+            );
           case "polyline":
             return <polyline key={i} points={s.points as string} {...common} />;
           case "text": {

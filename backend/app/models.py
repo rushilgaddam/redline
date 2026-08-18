@@ -70,6 +70,8 @@ class Drawing(Base):
     layout: Mapped[dict] = mapped_column(JSON, default=dict)  # rendering instructions for the CAD viewer
     cad_qa_findings: Mapped[list] = mapped_column(JSON, default=list)  # seeded background-scan findings
     cad_qa_scanned: Mapped[bool] = mapped_column(Boolean, default=False)
+    status: Mapped[str] = mapped_column(String, default="active")  # active | closed
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
     site: Mapped["Site"] = relationship(back_populates="drawings")
@@ -122,6 +124,7 @@ class Message(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_id)
     flag_id: Mapped[str] = mapped_column(ForeignKey("flags.id"))
     sender: Mapped[str] = mapped_column(String)  # technician | ai | engineer | system
+    sender_name: Mapped[str | None] = mapped_column(String, nullable=True)
     text: Mapped[str] = mapped_column(Text, default="")
     photo_ref: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)

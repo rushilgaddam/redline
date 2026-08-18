@@ -1,12 +1,16 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from . import models
 from .database import SessionLocal, engine
-from .routers import drawings, flags, sms, users, ws
+from .routers import drawings, drawings_ingest, flags, sms, users, ws
 from .seed import seed
+
+UPLOADS_DIR = Path(__file__).resolve().parent / "uploads"
 
 
 @asynccontextmanager
@@ -30,7 +34,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+UPLOADS_DIR.mkdir(exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
+
 app.include_router(drawings.router)
+app.include_router(drawings_ingest.router)
 app.include_router(flags.router)
 app.include_router(sms.router)
 app.include_router(users.router)

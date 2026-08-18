@@ -4,6 +4,8 @@ import type {
   DrawingSummary,
   Flag,
   FlagDetail,
+  IngestResult,
+  Region,
   Site,
   SmsInboundResult,
   User,
@@ -31,6 +33,53 @@ export const api = {
   drawings: (siteId?: string) => req<DrawingSummary[]>(`/drawings${siteId ? `?site_id=${siteId}` : ""}`),
   drawing: (id: string) => req<DrawingDetail>(`/drawings/${id}`),
   runCadQa: (id: string) => req<{ findings: Flag[] }>(`/drawings/${id}/cad-qa-scan`, { method: "POST" }),
+  closeDrawing: async (id: string, technicianId: string): Promise<DrawingSummary> => {
+    const body = new FormData();
+    body.append("technician_id", technicianId);
+    const res = await fetch(`${BASE}/drawings/${id}/close`, { method: "POST", body });
+    if (!res.ok) {
+      const detail = await res.json().catch(() => null);
+      throw new Error(detail?.detail ?? `${res.status} ${res.statusText}`);
+    }
+    return res.json();
+  },
+
+  ingestDrawing: async (form: {
+    file: File;
+    drawing_number: string;
+    revision: string;
+    title: string;
+    discipline: string;
+    site_id: string;
+    primary_author_id: string;
+    context_block: string;
+  }): Promise<IngestResult> => {
+    const body = new FormData();
+    for (const [k, v] of Object.entries(form)) body.append(k, v as string | Blob);
+    const res = await fetch(`${BASE}/drawings/ingest`, { method: "POST", body });
+    if (!res.ok) {
+      const detail = await res.json().catch(() => null);
+      throw new Error(detail?.detail ?? `${res.status} ${res.statusText}`);
+    }
+    return res.json();
+  },
+  updateRegions: (
+    drawingId: string,
+    regions: Pick<Region, "id" | "label" | "description" | "bbox_x" | "bbox_y" | "bbox_w" | "bbox_h">[],
+  ) =>
+    req<DrawingDetail>(`/drawings/${drawingId}/regions`, {
+      method: "PUT",
+      body: JSON.stringify({
+        regions: regions.map((r) => ({ ...r, id: r.id.startsWith("new-") ? null : r.id })),
+      }),
+    }),
+  confirmDrawing: async (drawingId: string, actorUserId: string): Promise<DrawingDetail> => {
+    const body = new FormData();
+    body.append("actor_user_id", actorUserId);
+    const res = await fetch(`${BASE}/drawings/${drawingId}/confirm`, { method: "POST", body });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    return res.json();
+  },
 
   flags: (params: Record<string, string | undefined> = {}) => {
     const qs = new URLSearchParams(

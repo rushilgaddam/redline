@@ -6,6 +6,9 @@ consistent visual system.
 """
 import math
 
+SHEET_W = 1000
+SHEET_H = 680
+
 
 def rect(x, y, w, h, cls="detail", rx=0):
     return {"type": "rect", "x": x, "y": y, "w": w, "h": h, "rx": rx, "class": cls}

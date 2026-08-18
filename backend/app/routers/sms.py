@@ -40,15 +40,24 @@ def technician_conversation(technician_id: str, db: Session = Depends(get_db)):
     flags = db.execute(
         select(models.Flag).where(models.Flag.technician_id == technician_id)
     ).scalars().all()
+    drawing_cache: dict[str, models.Drawing | None] = {}
     items = []
     for flag in flags:
+        if flag.drawing_id not in drawing_cache:
+            drawing_cache[flag.drawing_id] = db.get(models.Drawing, flag.drawing_id)
+        drawing = drawing_cache[flag.drawing_id]
+        region = db.get(models.Region, flag.region_id) if flag.region_id else None
         for msg in flag.messages:
             items.append({
                 "flag_id": flag.id,
                 "drawing_id": flag.drawing_id,
+                "drawing_number": drawing.drawing_number if drawing else None,
+                "drawing_title": drawing.title if drawing else None,
+                "region_label": region.label if region else None,
                 "status": flag.status,
                 "source": flag.source,
                 "sender": msg.sender,
+                "sender_name": msg.sender_name,
                 "text": msg.text,
                 "photo_ref": msg.photo_ref,
                 "created_at": msg.created_at,
@@ -103,7 +112,7 @@ async def sms_inbound(body: schemas.SmsInboundIn, db: Session = Depends(get_db))
     db.flush()
 
     db.add(models.Message(id=models.gen_id(), flag_id=flag.id, sender="technician",
-                           text=body.text, photo_ref=body.photo_ref))
+                           sender_name=technician.name, text=body.text, photo_ref=body.photo_ref))
 
     reply_parts = []
     if reuse_match:
@@ -118,21 +127,36 @@ async def sms_inbound(body: schemas.SmsInboundIn, db: Session = Depends(get_db))
     if answered:
         ai_text = f"Tentative answer ({vision.confidence:.0f}% confidence) — {vision.diagnosis}"
         reply_parts.append(ai_text)
-        db.add(models.Message(id=models.gen_id(), flag_id=flag.id, sender="ai", text=ai_text))
+        db.add(models.Message(id=models.gen_id(), flag_id=flag.id, sender="ai", sender_name="Redline AI", text=ai_text))
     else:
+        routed_engineer = db.get(models.User, routed_to)
         reason = "This drawing needs manual verification first" if needs_review else vision.reasoning
-        sys_text = f"Sent to {db.get(models.User, routed_to).name} for a direct look. ({reason})"
+        sys_text = f"Sent to {routed_engineer.name} for a direct look. ({reason})"
         reply_parts.append(sys_text)
-        db.add(models.Message(id=models.gen_id(), flag_id=flag.id, sender="system", text=sys_text))
+        db.add(models.Message(id=models.gen_id(), flag_id=flag.id, sender="system", sender_name="Redline", text=sys_text))
 
     db.add(models.AuditEvent(
         id=models.gen_id(), flag_id=flag.id, drawing_id=drawing.id, actor="system",
         action="flag_created",
         detail=f"resolved via {method}" + (", backup routing" if used_backup else ""),
     ))
+    reopened = False
+    if drawing.status == "closed":
+        drawing.status = "active"
+        drawing.closed_at = None
+        db.add(models.AuditEvent(
+            id=models.gen_id(), drawing_id=drawing.id, actor="system",
+            action="drawing_reopened", detail=f"reopened by new flag {flag.id}",
+        ))
+        reopened = True
+
     db.commit()
     db.refresh(flag)
 
     await manager.broadcast("flag_created", schemas.FlagOut.model_validate(flag).model_dump())
+    if reopened:
+        db.refresh(drawing)
+        await manager.broadcast("drawing_updated", schemas.DrawingSummaryOut.model_validate(drawing).model_dump())
+        reply_parts.insert(0, f"Heads up — {drawing.drawing_number} was marked fully assembled; reopening it for this.")
 
     return schemas.SmsInboundOut(flag=flag, reply_text=" ".join(reply_parts))

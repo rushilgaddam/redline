@@ -36,6 +36,7 @@ def run_cad_qa_scan(db: Session, drawing: models.Drawing) -> list[models.Flag]:
         db.add(models.Message(
             flag_id=flag.id,
             sender="ai",
+            sender_name="Redline AI",
             text=finding["finding"],
         ))
         db.add(models.AuditEvent(

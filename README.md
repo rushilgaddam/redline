@@ -31,3 +31,21 @@ Open the printed Vite URL. Pick an engineer to see the inbox, or open the techni
 engineer inbox in real time over the same WebSocket the real app would use.
 
 To reset the demo data, stop the backend and delete `backend/redline.db`.
+
+## Adding a real drawing
+
+"Add drawing" in the sidebar takes a real CAD export — `.dxf` is parsed as actual vector geometry
+(`ezdxf`, including `INSERT`/block expansion) and rendered with the same shape system as the seeded
+demo drawings; `.pdf` is rendered as an image background, plus its vector paths are pulled for
+region clustering when it's a print-to-PDF export rather than a scan. DWG isn't parseable without
+Autodesk's SDK — export as DXF instead.
+
+Regions are auto-suggested by spatially clustering the file's own geometry (a real deterministic
+heuristic, not an AI call — see `backend/app/services/ingest.py`), then an engineer confirms,
+renames, drags, resizes, or draws them by hand before the drawing goes live. Until confirmed, the
+drawing is `confidence_floor_status = needs_review`: technician SMS about it still routes, but always
+as a direct escalation, never a tentative AI answer (§3.5 of the architecture doc).
+
+A technician can also mark a drawing's physical build as complete (`status = closed`) from the
+simulator once a QR tag is scanned. A new technician flag against a closed drawing automatically
+reopens it.

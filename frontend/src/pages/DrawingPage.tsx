@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, BookOpen, ChevronRight, Loader2, ScanLine, Sparkles, X } from "lucide-react";
+import { ArrowLeft, BookOpen, ChevronRight, Loader2, PackageCheck, ScanLine, ShieldAlert, Sparkles, X } from "lucide-react";
 import clsx from "clsx";
 import { api } from "../lib/api";
 import { useStore } from "../lib/store";
@@ -92,6 +92,11 @@ export function DrawingPage() {
               <span className="rounded-md border border-ink-600 bg-ink-850 px-1.5 py-0.5 font-mono text-[10px] text-ink-300">
                 {drawing.discipline}
               </span>
+              {drawing.status === "closed" && (
+                <span className="flex items-center gap-1 rounded-md border border-ink-600 bg-ink-800 px-1.5 py-0.5 text-[10px] font-medium text-ink-300">
+                  <PackageCheck size={10} /> Assembly complete
+                </span>
+              )}
             </div>
             <div className="text-[12.5px] text-ink-300">{drawing.title}</div>
           </div>
@@ -129,6 +134,22 @@ export function DrawingPage() {
           )}
         </div>
       </div>
+
+      {drawing.confidence_floor_status === "needs_review" && (
+        <div className="flex items-center justify-between gap-3 border-b border-signal-amber/20 bg-signal-amber/[0.06] px-5 py-2.5 text-[12.5px] text-signal-amber">
+          <div className="flex items-center gap-2">
+            <ShieldAlert size={14} />
+            Regions haven't been confirmed yet — technician questions about this drawing route straight to you as a
+            direct escalation, with no tentative AI answer, until it's confirmed.
+          </div>
+          <button
+            onClick={() => navigate(`/drawings/${drawing.id}/regions`)}
+            className="shrink-0 rounded-md border border-signal-amber/40 px-2.5 py-1 font-medium text-signal-amber transition hover:bg-signal-amber/10"
+          >
+            Confirm regions
+          </button>
+        </div>
+      )}
 
       <div className="flex min-h-0 flex-1">
         <div className="relative min-w-0 flex-1 p-3">

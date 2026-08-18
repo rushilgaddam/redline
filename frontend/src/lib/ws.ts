@@ -1,9 +1,10 @@
 import { useEffect, useRef } from "react";
-import type { Flag } from "./types";
+import type { DrawingSummary, Flag } from "./types";
 
 export type WsEvent =
   | { event: "flag_created"; payload: Flag }
-  | { event: "flag_updated"; payload: Flag };
+  | { event: "flag_updated"; payload: Flag }
+  | { event: "drawing_updated"; payload: DrawingSummary };
 
 export function useInboxSocket(onEvent: (evt: WsEvent) => void, onStatusChange?: (connected: boolean) => void) {
   const cbRef = useRef(onEvent);

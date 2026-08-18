@@ -49,7 +49,10 @@ async def reply_to_flag(flag_id: str, body: schemas.ReplyIn, db: Session = Depen
     if not flag:
         raise HTTPException(404, "Flag not found")
     actor = db.get(models.User, body.actor_user_id)
-    msg = models.Message(id=models.gen_id(), flag_id=flag.id, sender="engineer", text=body.text)
+    msg = models.Message(
+        id=models.gen_id(), flag_id=flag.id, sender="engineer",
+        sender_name=actor.name if actor else None, text=body.text,
+    )
     db.add(msg)
     db.add(models.AuditEvent(
         id=models.gen_id(), flag_id=flag.id, drawing_id=flag.drawing_id,
@@ -71,7 +74,10 @@ async def resolve_flag(flag_id: str, body: schemas.ReplyIn | None = None, db: Se
         actor = db.get(models.User, body.actor_user_id)
         actor_name = actor.name if actor else actor_name
         if body.text:
-            db.add(models.Message(id=models.gen_id(), flag_id=flag.id, sender="engineer", text=body.text))
+            db.add(models.Message(
+                id=models.gen_id(), flag_id=flag.id, sender="engineer",
+                sender_name=actor_name if actor_name != "engineer" else None, text=body.text,
+            ))
     flag.status = "resolved"
     flag.resolved_at = datetime.now(timezone.utc)
     db.add(models.AuditEvent(

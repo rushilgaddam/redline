@@ -31,6 +31,7 @@ class MessageOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
     sender: str
+    sender_name: str | None
     text: str
     photo_ref: str | None
     created_at: datetime
@@ -70,6 +71,8 @@ class DrawingSummaryOut(BaseModel):
     discipline: str
     primary_author_id: str
     confidence_floor_status: str
+    status: str
+    closed_at: datetime | None
 
 
 class DrawingDetailOut(DrawingSummaryOut):
@@ -102,3 +105,22 @@ class ReplyIn(BaseModel):
 
 class CadQaRunOut(BaseModel):
     findings: list[FlagOut]
+
+
+class RegionIn(BaseModel):
+    id: str | None = None
+    label: str
+    description: str = ""
+    bbox_x: float
+    bbox_y: float
+    bbox_w: float
+    bbox_h: float
+
+
+class RegionsUpdateIn(BaseModel):
+    regions: list[RegionIn]
+
+
+class IngestWarningsOut(BaseModel):
+    drawing: DrawingDetailOut
+    warnings: list[str]

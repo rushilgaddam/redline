@@ -4,3 +4,5 @@ sqlalchemy==2.0.35
 pydantic==2.9.2
 python-multipart==0.0.9
 websockets==13.1
+ezdxf==1.4.4
+pymupdf==1.28.2
