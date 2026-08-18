@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, BookOpen, ChevronRight, Loader2, PackageCheck, ScanLine, ShieldAlert, Sparkles, X } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import clsx from "clsx";
 import { api } from "../lib/api";
 import { useStore } from "../lib/store";
@@ -185,8 +186,17 @@ export function DrawingPage() {
           </div>
         </div>
 
-        <div className="w-[380px] shrink-0 border-l border-ink-700 bg-ink-900/40">
+        <div className="w-[380px] shrink-0 overflow-hidden border-l border-ink-700 bg-ink-900/40">
+          <AnimatePresence mode="wait" initial={false}>
           {selectedFlag ? (
+            <motion.div
+              key="thread"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 24 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="h-full"
+            >
             <FlagThreadPanel
               flag={selectedFlag}
               region={drawing.regions.find((r) => r.id === selectedFlag.region_id) ?? null}
@@ -197,8 +207,15 @@ export function DrawingPage() {
                 upsertFlag(f);
               }}
             />
+            </motion.div>
           ) : (
-            <div className="flex h-full flex-col">
+            <motion.div
+              key="list"
+              initial={{ opacity: 0, x: -12 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -12 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="flex h-full flex-col">
               <div className="border-b border-ink-700 px-4 py-3.5">
                 <div className="text-[13px] font-semibold text-ink-100">
                   Flags <span className="text-ink-500">({flags.length})</span>
@@ -263,8 +280,9 @@ export function DrawingPage() {
                   ))}
                 </div>
               </div>
-            </div>
+            </motion.div>
           )}
+          </AnimatePresence>
         </div>
       </div>
     </div>

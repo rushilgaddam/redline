@@ -1,5 +1,6 @@
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Camera, Minus, Plus, ScanLine, Scan } from "lucide-react";
+import { motion } from "framer-motion";
 import clsx from "clsx";
 import type { DrawingLayout, Flag, Region } from "../../lib/types";
 import { usePanZoom } from "./usePanZoom";
@@ -166,49 +167,55 @@ export const CadViewer = forwardRef<CadViewerHandle, Props>(function CadViewer(
         const isHovered = flag.id === hoveredPin;
         const color = STATUS_COLOR[flag.status];
         return (
-          <button
+          <div
             key={flag.id}
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelectFlag?.(flag);
-            }}
-            onMouseEnter={() => setHoveredPin(flag.id)}
-            onMouseLeave={() => setHoveredPin(null)}
-            className="absolute flex items-center justify-center rounded-full transition-transform"
+            className="absolute"
             style={{
               left: cx,
               top: cy,
-              transform: `translate(-50%, -100%) scale(${isSelected || isHovered ? 1.18 : 1})`,
-              width: 30,
-              height: 30,
+              transform: "translate(-50%, -100%)",
               zIndex: isSelected ? 30 : 10,
             }}
           >
-            <span
-              className="absolute inset-0 rounded-full"
-              style={{
-                background: `${color}30`,
-                boxShadow: isSelected ? `0 0 0 3px ${color}55, 0 0 18px ${color}66` : `0 0 0 1px ${color}55`,
+            <motion.button
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectFlag?.(flag);
               }}
-            />
-            {flag.status === "open" && (
-              <span className="absolute inset-0 animate-ping rounded-full" style={{ background: `${color}35` }} />
-            )}
-            <span
-              className="relative flex h-[18px] w-[18px] items-center justify-center rounded-full border"
-              style={{ background: "#0a0e14", borderColor: color }}
+              onMouseEnter={() => setHoveredPin(flag.id)}
+              onMouseLeave={() => setHoveredPin(null)}
+              initial={{ scale: 0, opacity: 0, y: -14 }}
+              animate={{ scale: isSelected || isHovered ? 1.18 : 1, opacity: 1, y: 0 }}
+              transition={{ type: "spring", stiffness: 480, damping: 20 }}
+              className="relative flex items-center justify-center rounded-full"
+              style={{ width: 30, height: 30 }}
             >
-              {flag.source === "sms" ? (
-                <Camera size={10} color={color} strokeWidth={2.5} />
-              ) : (
-                <ScanLine size={10} color={color} strokeWidth={2.5} />
+              <span
+                className="absolute inset-0 rounded-full"
+                style={{
+                  background: `${color}30`,
+                  boxShadow: isSelected ? `0 0 0 3px ${color}55, 0 0 18px ${color}66` : `0 0 0 1px ${color}55`,
+                }}
+              />
+              {flag.status === "open" && (
+                <span className="absolute inset-0 animate-ping rounded-full" style={{ background: `${color}35` }} />
               )}
-            </span>
-            <span
-              className="absolute bottom-[-3px] left-1/2 h-[6px] w-[6px] -translate-x-1/2 rotate-45"
-              style={{ background: color }}
-            />
-          </button>
+              <span
+                className="relative flex h-[18px] w-[18px] items-center justify-center rounded-full border"
+                style={{ background: "#0a0e14", borderColor: color }}
+              >
+                {flag.source === "sms" ? (
+                  <Camera size={10} color={color} strokeWidth={2.5} />
+                ) : (
+                  <ScanLine size={10} color={color} strokeWidth={2.5} />
+                )}
+              </span>
+              <span
+                className="absolute bottom-[-3px] left-1/2 h-[6px] w-[6px] -translate-x-1/2 rotate-45"
+                style={{ background: color }}
+              />
+            </motion.button>
+          </div>
         );
       })}
 

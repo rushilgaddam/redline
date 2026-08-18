@@ -1,10 +1,13 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertCircle, CheckCircle2, Clock, PartyPopper, Camera, ScanLine } from "lucide-react";
+import { motion, type Variants } from "framer-motion";
 import { useSession } from "../lib/session";
 import { useStore } from "../lib/store";
 import { LiveDot } from "../components/layout/AppShell";
 import { StatusBadge } from "../components/StatusBadge";
+import { CountUp } from "../components/CountUp";
+import { InboxCardSkeleton } from "../components/Skeleton";
 import { timeAgo } from "../lib/format";
 import type { Flag } from "../lib/types";
 
@@ -13,6 +16,16 @@ function isToday(iso: string) {
   const now = new Date();
   return d.toDateString() === now.toDateString();
 }
+
+const listVariants: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.055, delayChildren: 0.03 } },
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 14, scale: 0.98 },
+  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.38, ease: [0.16, 1, 0.3, 1] } },
+};
 
 export function InboxPage() {
   const { currentEngineer } = useSession();
@@ -74,23 +87,35 @@ export function InboxPage() {
 
       <div className="flex-1 overflow-y-auto px-6 py-5">
         {loading ? (
-          <div className="text-[13px] text-ink-400">Loading…</div>
+          <div className="space-y-3">
+            {[0, 1, 2].map((i) => (
+              <InboxCardSkeleton key={i} />
+            ))}
+          </div>
         ) : groups.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="flex flex-col items-center justify-center gap-3 py-24 text-center"
+          >
             <PartyPopper size={28} className="text-signal-teal" />
             <div className="text-[15px] font-semibold text-ink-100">All caught up</div>
             <p className="max-w-sm text-[12.5px] text-ink-400">
               Nothing waiting on you right now. New flags land here the moment a technician texts, or the CAD-QA
               agent finds something.
             </p>
-          </div>
+          </motion.div>
         ) : (
-          <div className="space-y-3">
+          <motion.div variants={listVariants} initial="hidden" animate="show" className="space-y-3">
             {groups.map((g) => (
-              <button
+              <motion.button
                 key={g.drawing!.id}
+                variants={itemVariants}
+                whileHover={{ y: -2, borderColor: "var(--color-ink-500)" }}
+                whileTap={{ scale: 0.995 }}
                 onClick={() => navigate(`/drawings/${g.drawing!.id}?focus=${g.flags[0].id}`)}
-                className="flex w-full items-start gap-4 rounded-xl border border-ink-700 bg-ink-900/50 p-4 text-left transition hover:border-ink-500 hover:bg-ink-850"
+                className="flex w-full items-start gap-4 rounded-xl border border-ink-700 bg-ink-900/50 p-4 text-left"
               >
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-ink-600 bg-ink-850 font-mono text-[10px] font-semibold text-ink-300">
                   {g.drawing!.discipline.slice(0, 3).toUpperCase()}
@@ -126,9 +151,9 @@ export function InboxPage() {
                   </div>
                 </div>
                 <StatusBadge status={g.flags[0].status} pulse />
-              </button>
+              </motion.button>
             ))}
-          </div>
+          </motion.div>
         )}
       </div>
     </div>
@@ -154,7 +179,7 @@ function StatChip({
   return (
     <div className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 ${toneClass}`}>
       {icon}
-      <span className="font-mono text-[13px] font-semibold mono-num">{value}</span>
+      <CountUp value={value} className="font-mono text-[13px] font-semibold mono-num" />
       <span className="text-[11.5px] text-ink-400">{label}</span>
     </div>
   );
