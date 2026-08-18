@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+
+  --color-ink-950: #05070a;
+  --color-ink-900: #090d12;
+  --color-ink-850: #0c1119;
+  --color-ink-800: #111823;
+  --color-ink-700: #16202e;
+  --color-ink-600: #1e2c3d;
+  --color-ink-500: #2a3c52;
+  --color-ink-400: #445872;
+  --color-ink-300: #6a7f99;
+  --color-ink-200: #9db0c7;
+  --color-ink-100: #d3deec;
+  --color-ink-50: #eef3fa;
+
+  --color-signal-teal: #2de6c4;
+  --color-signal-teal-dim: #1a9c85;
+  --color-signal-amber: #ffb454;
+  --color-signal-amber-dim: #b9822f;
+  --color-signal-coral: #ff5c72;
+  --color-signal-coral-dim: #b8394a;
+  --color-signal-violet: #a78bfa;
+  --color-signal-blue: #5ec8ff;
+
+  --shadow-glow-teal: 0 0 0 1px rgba(45, 230, 196, 0.25), 0 0 24px rgba(45, 230, 196, 0.18);
+  --shadow-glow-amber: 0 0 0 1px rgba(255, 180, 84, 0.25), 0 0 24px rgba(255, 180, 84, 0.16);
+  --shadow-glow-coral: 0 0 0 1px rgba(255, 92, 114, 0.3), 0 0 24px rgba(255, 92, 114, 0.18);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-ink-700);
+  }
+  html {
+    color-scheme: dark;
+  }
+  body {
+    background: var(--color-ink-950);
+    color: var(--color-ink-100);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+  ::selection {
+    background: rgba(45, 230, 196, 0.25);
+  }
+  ::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-ink-600);
+    border-radius: 6px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-ink-500);
+  }
+}
+
+@layer utilities {
+  .bg-grain {
+    background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.045) 1px, transparent 0);
+    background-size: 22px 22px;
+  }
+  .mono-num {
+    font-variant-numeric: tabular-nums;
+  }
+  .text-glow-teal {
+    text-shadow: 0 0 18px rgba(45, 230, 196, 0.35);
+  }
+  .scanline-sweep {
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgba(45, 230, 196, 0.02) 20%,
+      rgba(45, 230, 196, 0.16) 50%,
+      rgba(45, 230, 196, 0.02) 80%,
+      transparent 100%
+    );
+    animation: scan-sweep 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+}
+
+@keyframes scan-sweep {
+  0% {
+    top: -10%;
+  }
+  100% {
+    top: 100%;
+  }
+}
