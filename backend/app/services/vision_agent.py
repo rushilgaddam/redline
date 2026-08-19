@@ -23,9 +23,29 @@ _STOPWORDS = {
 }
 
 
+def _merge_suffix_letters(words: list[str]) -> list[str]:
+    """"Panel A" and "Panel B" must not tokenize to the same thing just
+    because a bare trailing letter/digit is too short to survive on its
+    own — glue it onto the word before it, the same idea as the hyphen
+    stripping below but for space-separated suffixes."""
+    merged: list[str] = []
+    for w in words:
+        if len(w) == 1 and merged:
+            merged[-1] = merged[-1] + w
+        else:
+            merged.append(w)
+    return merged
+
+
 def _tokenize(text: str) -> set[str]:
-    words = re.findall(r"[a-z0-9']+", text.lower())
-    return {w for w in words if w not in _STOPWORDS and len(w) > 2}
+    # Strip hyphens between alphanumerics first so equipment tags like "CB-3"
+    # or "TB-1" survive as one token instead of splitting into "cb" + "3" —
+    # and keep 2-char tokens (K2, T1, F3 are this domain's actual equipment
+    # IDs); the explicit stopword list above already covers short function
+    # words, so a length filter isn't needed to catch those separately.
+    normalized = re.sub(r"(?<=[a-z0-9])-(?=[a-z0-9])", "", text.lower())
+    words = _merge_suffix_letters(re.findall(r"[a-z0-9']+", normalized))
+    return {w for w in words if w not in _STOPWORDS and len(w) >= 2}
 
 
 def _stable_jitter(seed: str, spread: int = 6) -> int:

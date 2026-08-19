@@ -82,6 +82,29 @@ escalated" label. Measure: region-match accuracy, false-confident-answer
 rate (the one that matters most per §0.3 — answering when it shouldn't),
 escalation precision/recall. No such set exists yet.
 
+**Two real bugs this heuristic had, caught by live end-to-end testing (not
+just reading the code):**
+1. The tokenizer's `len(word) > 2` filter — shared by this file,
+   `knowledge_reuse.py`, and `site_knowledge.py` — silently dropped every
+   2-character token, which is exactly this domain's own naming convention
+   for equipment IDs (K1–K4, T1, F1–F4). A note about "K2 chattering"
+   couldn't match a region literally labeled "K2" on the token that matters
+   most. Fixed by dropping the length filter (the explicit stopword list
+   already covers short function words) and normalizing hyphens so
+   "CB-3"/"TB-1" survive as one token instead of splitting into two
+   fragments that are each too short to matter.
+2. Once equipment IDs survived, a second, subtler gap showed up: "Panel A"
+   and "Panel B" both tokenized to just `{"panel"}` — the bare trailing
+   letter was too short to keep on its own. A note about Panel A's
+   corrosion confidently cross-referenced a connected knowledge doc about
+   *Panel B's* corrosion, because nothing in the token set distinguished
+   them. This is exactly the false-confident-answer failure mode called out
+   above as the one to stress-test hardest — caught here by actually
+   constructing an ingested drawing with two similarly-named regions and
+   asking about one of them, not by inspection. Fixed by gluing a bare
+   trailing single letter/digit onto the word before it ("panel" + "a" →
+   "panela"), the same idea as the hyphen fix, in all three tokenizers.
+
 ---
 
 ## 🟡 CAD-QA background agent (proactive drawing scan)

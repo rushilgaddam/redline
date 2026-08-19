@@ -25,10 +25,24 @@ _STOPWORDS = {
 }
 
 
+def _merge_suffix_letters(words: list[str]) -> list[str]:
+    """"Panel A" and "Panel B" must not tokenize to the same thing — glue a
+    bare trailing letter/digit onto the word before it."""
+    merged: list[str] = []
+    for w in words:
+        if len(w) == 1 and merged:
+            merged[-1] = merged[-1] + w
+        else:
+            merged.append(w)
+    return merged
+
+
 def _tokenize(text: str) -> set[str]:
+    # Keep 2-char tokens — K2, T1, F3 are this domain's actual equipment IDs,
+    # not noise; the stopword list above already covers short function words.
     normalized = re.sub(r"(?<=[a-z0-9])-(?=[a-z0-9])", "", text.lower())
-    words = re.findall(r"[a-z0-9']+", normalized)
-    return {w for w in words if w not in _STOPWORDS and len(w) > 2}
+    words = _merge_suffix_letters(re.findall(r"[a-z0-9']+", normalized))
+    return {w for w in words if w not in _STOPWORDS and len(w) >= 2}
 
 
 @dataclass

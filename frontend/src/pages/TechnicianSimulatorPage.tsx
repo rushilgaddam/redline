@@ -42,6 +42,7 @@ export function TechnicianSimulatorPage() {
   const [titleBlockDrawingId, setTitleBlockDrawingId] = useState<string | null>(null);
   const [titleBlockPicker, setTitleBlockPicker] = useState(false);
   const [candidates, setCandidates] = useState<DrawingSummary[]>([]);
+  const [pendingMessage, setPendingMessage] = useState<{ text: string; photoRef: string | null } | null>(null);
   const [sending, setSending] = useState(false);
   const [closing, setClosing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -71,6 +72,7 @@ export function TechnicianSimulatorPage() {
     setLocalBubbles([]);
     setCandidates([]);
     setTagDrawing(null);
+    setPendingMessage(null);
     api.conversation(technician.id).then(setConversation);
   }, [technician]);
 
@@ -78,15 +80,20 @@ export function TechnicianSimulatorPage() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [conversation, localBubbles, candidates]);
 
-  async function sendMessage(overrideDrawingId?: string, overrideText?: string) {
+  async function sendMessage(overrideDrawingId?: string, overrideText?: string, overridePhotoRef?: string | null) {
     if (!technician) return;
     const messageText = overrideText ?? text;
     if (!messageText.trim()) return;
+    // Resolving an ambiguous candidate resends the technician's *original*
+    // question with a chosen drawing id — never invented placeholder text —
+    // so both the persisted note and what the vision agent matches against
+    // are the real question, not just "which numbered option was clicked."
+    const messagePhotoRef = overridePhotoRef !== undefined ? overridePhotoRef : photoRef;
     setSending(true);
     const tempId = crypto.randomUUID();
     setLocalBubbles((b) => [
       ...b,
-      { id: tempId, sender: "technician", text: messageText, photoRef, at: new Date().toISOString(), pending: true },
+      { id: tempId, sender: "technician", text: messageText, photoRef: messagePhotoRef, at: new Date().toISOString(), pending: true },
     ]);
     setCandidates([]);
     if (!overrideDrawingId) {
@@ -97,7 +104,7 @@ export function TechnicianSimulatorPage() {
       const res = await api.smsInbound({
         technician_id: technician.id,
         text: messageText,
-        photo_ref: photoRef,
+        photo_ref: messagePhotoRef,
         asset_tag_drawing_id: overrideDrawingId ?? tagDrawing?.id ?? null,
         title_block_photo_drawing_id: overrideDrawingId ? null : titleBlockDrawingId,
         site_id: activeSiteId,
@@ -108,8 +115,14 @@ export function TechnicianSimulatorPage() {
       ]);
       setTitleBlockDrawingId(null);
       if (res.flag) upsertFlag(res.flag);
-      if (res.candidates.length) setCandidates(res.candidates);
-      if (technician) {
+      if (res.candidates.length) {
+        // Nothing was persisted server-side for an ambiguous match — keep the
+        // optimistic bubbles above (and remember the real text/photo) instead
+        // of refetching and clearing them, or the question just vanishes.
+        setCandidates(res.candidates);
+        setPendingMessage({ text: messageText, photoRef: messagePhotoRef });
+      } else {
+        setPendingMessage(null);
         const fresh = await api.conversation(technician.id);
         setConversation(fresh);
         setLocalBubbles([]);
@@ -274,7 +287,7 @@ export function TechnicianSimulatorPage() {
               {candidates.map((c, i) => (
                 <button
                   key={c.id}
-                  onClick={() => sendMessage(c.id, `${i + 1}`)}
+                  onClick={() => sendMessage(c.id, pendingMessage?.text ?? text, pendingMessage?.photoRef ?? null)}
                   className="rounded-xl border border-ink-600 bg-ink-850 px-3 py-1.5 text-[12px] text-ink-200 transition hover:border-signal-blue/50"
                 >
                   {i + 1}. {c.drawing_number} — {c.title}
