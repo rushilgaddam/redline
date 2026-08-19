@@ -4,31 +4,44 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
 
-  --color-ink-950: #05070a;
-  --color-ink-900: #090d12;
-  --color-ink-850: #0c1119;
-  --color-ink-800: #111823;
-  --color-ink-700: #16202e;
-  --color-ink-600: #1e2c3d;
-  --color-ink-500: #2a3c52;
-  --color-ink-400: #445872;
-  --color-ink-300: #6a7f99;
-  --color-ink-200: #9db0c7;
-  --color-ink-100: #d3deec;
-  --color-ink-50: #eef3fa;
+  /* "ink" scale: kept the same token names used everywhere so this one file
+     re-themes the whole app, but the ramp is now light — ink-950 is the
+     lightest surface (was the darkest bg), ink-50 is the darkest text (was
+     the brightest text-on-dark). Every bg-ink-950/text-ink-100/border-ink-700
+     usage across the app flips correctly because the *usage pattern* (dark
+     surfaces at the high end, bright text at the low end) is preserved,
+     only the values invert. */
+  --color-ink-950: #ffffff;
+  --color-ink-900: #fafafa;
+  --color-ink-850: #f7f7f8;
+  --color-ink-800: #f0f0f1;
+  --color-ink-700: #e4e4e7;
+  --color-ink-600: #d4d4d8;
+  --color-ink-500: #a1a1aa;
+  --color-ink-400: #71717a;
+  --color-ink-300: #52525b;
+  --color-ink-200: #3f3f46;
+  --color-ink-100: #18181b;
+  --color-ink-50: #09090b;
 
-  --color-signal-teal: #2de6c4;
-  --color-signal-teal-dim: #1a9c85;
-  --color-signal-amber: #ffb454;
-  --color-signal-amber-dim: #b9822f;
-  --color-signal-coral: #ff5c72;
-  --color-signal-coral-dim: #b8394a;
-  --color-signal-violet: #a78bfa;
-  --color-signal-blue: #5ec8ff;
+  --color-signal-teal: #059669;
+  --color-signal-teal-dim: #d1fae5;
+  --color-signal-amber: #d97706;
+  --color-signal-amber-dim: #fef3c7;
+  --color-signal-coral: #dc2626;
+  --color-signal-coral-dim: #fee2e2;
+  --color-signal-violet: #7c3aed;
+  --color-signal-violet-dim: #ede9fe;
+  --color-signal-blue: #2563eb;
+  --color-signal-blue-dim: #dbeafe;
 
-  --shadow-glow-teal: 0 0 0 1px rgba(45, 230, 196, 0.25), 0 0 24px rgba(45, 230, 196, 0.18);
-  --shadow-glow-amber: 0 0 0 1px rgba(255, 180, 84, 0.25), 0 0 24px rgba(255, 180, 84, 0.16);
-  --shadow-glow-coral: 0 0 0 1px rgba(255, 92, 114, 0.3), 0 0 24px rgba(255, 92, 114, 0.18);
+  --shadow-glow-teal: 0 0 0 1px rgba(5, 150, 105, 0.18), 0 2px 8px rgba(5, 150, 105, 0.12);
+  --shadow-glow-amber: 0 0 0 1px rgba(217, 119, 6, 0.18), 0 2px 8px rgba(217, 119, 6, 0.12);
+  --shadow-glow-coral: 0 0 0 1px rgba(220, 38, 38, 0.2), 0 2px 8px rgba(220, 38, 38, 0.12);
+
+  --shadow-card: 0 1px 2px rgba(9, 9, 11, 0.04), 0 1px 1px rgba(9, 9, 11, 0.03);
+  --shadow-elevated: 0 4px 16px rgba(9, 9, 11, 0.08), 0 1px 3px rgba(9, 9, 11, 0.06);
+  --shadow-modal: 0 12px 40px rgba(9, 9, 11, 0.14), 0 2px 8px rgba(9, 9, 11, 0.08);
 }
 
 @layer base {
@@ -36,7 +49,7 @@
     border-color: var(--color-ink-700);
   }
   html {
-    color-scheme: dark;
+    color-scheme: light;
   }
   body {
     background: var(--color-ink-950);
@@ -46,7 +59,7 @@
     overflow: hidden;
   }
   ::selection {
-    background: rgba(45, 230, 196, 0.25);
+    background: rgba(37, 99, 235, 0.16);
   }
   ::-webkit-scrollbar {
     width: 9px;
@@ -63,7 +76,7 @@
     background: var(--color-ink-500);
   }
   :focus-visible {
-    outline: 2px solid var(--color-signal-teal);
+    outline: 2px solid var(--color-signal-blue);
     outline-offset: 2px;
     border-radius: 2px;
   }
@@ -85,31 +98,32 @@
 
 @layer utilities {
   .bg-grain {
-    background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.045) 1px, transparent 0);
+    background-image: radial-gradient(circle at 1px 1px, rgba(9, 9, 11, 0.05) 1px, transparent 0);
     background-size: 22px 22px;
   }
   .mono-num {
     font-variant-numeric: tabular-nums;
   }
   .text-glow-teal {
-    text-shadow: 0 0 18px rgba(45, 230, 196, 0.35);
+    color: var(--color-signal-teal);
   }
   .scanline-sweep {
     background: linear-gradient(
       to bottom,
       transparent 0%,
-      rgba(45, 230, 196, 0.02) 20%,
-      rgba(45, 230, 196, 0.16) 50%,
-      rgba(45, 230, 196, 0.02) 80%,
+      rgba(37, 99, 235, 0.02) 20%,
+      rgba(37, 99, 235, 0.1) 50%,
+      rgba(37, 99, 235, 0.02) 80%,
       transparent 100%
     );
     animation: scan-sweep 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   }
   .glass-panel {
-    background: rgba(12, 17, 25, 0.72);
+    background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.09);
+    border: 1px solid var(--color-ink-700);
+    box-shadow: var(--shadow-modal);
   }
   .skeleton {
     background: linear-gradient(

@@ -1,11 +1,12 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { Inbox, LayoutGrid, Smartphone, ChevronDown, Radio, UploadCloud, Search, BrainCircuit } from "lucide-react";
+import { Inbox, LayoutGrid, Smartphone, ChevronDown, Radio, UploadCloud, Search, BrainCircuit, FolderKanban } from "lucide-react";
 import { motion } from "framer-motion";
 import clsx from "clsx";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useSession } from "../../lib/session";
 import { Avatar } from "../Avatar";
+import { ProfilePhotoButton } from "../ProfilePhotoButton";
 import { CommandPalette } from "../CommandPalette";
 
 function NavItem({ to, icon, label }: { to: string; icon: ReactNode; label: string }) {
@@ -79,6 +80,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <nav className="flex flex-col gap-0.5">
           <NavItem to="/inbox" icon={<Inbox size={16} />} label="Inbox" />
+          <NavItem to="/projects" icon={<FolderKanban size={16} />} label="Projects" />
           <NavItem to="/drawings" icon={<LayoutGrid size={16} />} label="Drawings" />
           <NavItem to="/drawings/new" icon={<UploadCloud size={16} />} label="Add drawing" />
           <NavItem to="/knowledge" icon={<BrainCircuit size={16} />} label="Site Knowledge" />
@@ -96,13 +98,19 @@ export function AppShell({ children }: { children: ReactNode }) {
           </motion.button>
 
           <div className="relative">
-            <button
+            <div
+              role="button"
+              tabIndex={0}
               onClick={() => setSwitcherOpen((v) => !v)}
-              className="flex w-full items-center gap-2 rounded-lg border border-ink-700 bg-ink-850 px-2.5 py-2 text-left transition hover:border-ink-500"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setSwitcherOpen((v) => !v);
+                }
+              }}
+              className="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-ink-700 bg-ink-850 px-2.5 py-2 text-left transition hover:border-ink-500"
             >
-              {currentEngineer && (
-                <Avatar name={currentEngineer.name} color={currentEngineer.avatar_color} size={26} />
-              )}
+              {currentEngineer && <ProfilePhotoButton user={currentEngineer} size={26} />}
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[12.5px] font-semibold text-ink-100">
                   {currentEngineer?.name ?? "Select engineer"}
@@ -110,7 +118,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <div className="truncate text-[10.5px] text-ink-400">{currentEngineer?.discipline}</div>
               </div>
               <ChevronDown size={13} className="text-ink-400" />
-            </button>
+            </div>
             {switcherOpen && (
               <div className="absolute bottom-full left-0 mb-2 w-full overflow-hidden rounded-lg border border-ink-600 bg-ink-850 shadow-2xl">
                 {engineers.map((eng) => (
@@ -122,7 +130,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     }}
                     className="flex w-full items-center gap-2 px-2.5 py-2 text-left transition hover:bg-ink-700"
                   >
-                    <Avatar name={eng.name} color={eng.avatar_color} size={24} />
+                    <Avatar name={eng.name} color={eng.avatar_color} src={eng.avatar_url} size={24} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[12px] font-medium text-ink-100">{eng.name}</div>
                       <div className="truncate text-[10px] text-ink-400">{eng.title}</div>

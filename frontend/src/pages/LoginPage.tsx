@@ -15,7 +15,7 @@ export function LoginPage() {
         <div className="blob h-[380px] w-[380px] bg-signal-teal/[0.08]" style={{ bottom: "-10%", right: "14%", animationDelay: "-6s" }} />
         <div className="blob h-[320px] w-[320px] bg-signal-blue/[0.06]" style={{ top: "38%", right: "30%", animationDelay: "-11s" }} />
       </div>
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(45,230,196,0.06),transparent_60%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(37,99,235,0.05),transparent_60%)]" />
 
       <motion.div
         initial={{ opacity: 0, y: 14 }}
@@ -62,7 +62,7 @@ export function LoginPage() {
                     initial={{ opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.3, delay: 0.15 + i * 0.05 }}
-                    whileHover={{ x: 2, borderColor: "rgba(45,230,196,0.4)" }}
+                    whileHover={{ x: 2, borderColor: "rgba(37,99,235,0.35)" }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => {
                       setCurrentEngineer(eng);
@@ -70,7 +70,7 @@ export function LoginPage() {
                     }}
                     className="flex w-full items-center gap-2.5 rounded-xl border border-ink-700 bg-ink-850/60 px-3 py-2.5 text-left"
                   >
-                    <Avatar name={eng.name} color={eng.avatar_color} size={32} />
+                    <Avatar name={eng.name} color={eng.avatar_color} src={eng.avatar_url} size={32} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[13px] font-medium text-ink-100">{eng.name}</div>
                       <div className="truncate text-[11px] text-ink-400">{eng.title}</div>
@@ -101,7 +101,7 @@ export function LoginPage() {
               question.
             </p>
             <motion.button
-              whileHover={{ y: -1, backgroundColor: "rgba(94,200,255,0.15)" }}
+              whileHover={{ y: -1, backgroundColor: "rgba(37,99,235,0.14)" }}
               whileTap={{ scale: 0.98 }}
               onClick={() => navigate("/technician")}
               className="mt-auto flex items-center justify-center gap-2 rounded-xl border border-signal-blue/30 bg-signal-blue/10 px-4 py-3 text-[13px] font-semibold text-signal-blue"

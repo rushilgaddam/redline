@@ -152,7 +152,7 @@ export function RegionEditorCanvas({
         className="pointer-events-none absolute inset-0"
         style={{
           backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.028) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px)",
+            "linear-gradient(rgba(9,9,11,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(9,9,11,0.05) 1px, transparent 1px)",
           backgroundSize: `${24 * transform.k}px ${24 * transform.k}px`,
           backgroundPosition: `${transform.x}px ${transform.y}px`,
         }}
@@ -198,8 +198,8 @@ export function RegionEditorCanvas({
               height: rh,
               cursor: drawMode ? "crosshair" : "move",
               border: isSelected ? "1.5px solid var(--color-signal-teal)" : "1.5px dashed var(--color-signal-blue)",
-              background: isSelected ? "rgba(45,230,196,0.10)" : "rgba(94,200,255,0.06)",
-              boxShadow: isSelected ? "0 0 16px rgba(45,230,196,0.25)" : undefined,
+              background: isSelected ? "rgba(5,150,105,0.08)" : "rgba(37,99,235,0.05)",
+              boxShadow: isSelected ? "0 0 0 3px rgba(5,150,105,0.12)" : undefined,
             }}
           >
             <div

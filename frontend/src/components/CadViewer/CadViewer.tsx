@@ -13,9 +13,9 @@ export interface CadViewerHandle {
 }
 
 const STATUS_COLOR: Record<Flag["status"], string> = {
-  open: "#ff5c72",
-  answered: "#ffb454",
-  resolved: "#2de6c4",
+  open: "#dc2626",
+  answered: "#d97706",
+  resolved: "#059669",
 };
 
 interface Props {
@@ -90,16 +90,9 @@ export const CadViewer = forwardRef<CadViewerHandle, Props>(function CadViewer(
         className="pointer-events-none absolute inset-0"
         style={{
           backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.028) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px)",
+            "linear-gradient(rgba(9,9,11,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(9,9,11,0.05) 1px, transparent 1px)",
           backgroundSize: `${24 * transform.k}px ${24 * transform.k}px`,
           backgroundPosition: `${transform.x}px ${transform.y}px`,
-        }}
-      />
-      <div
-        className="pointer-events-none absolute inset-0 opacity-60"
-        style={{
-          background:
-            "radial-gradient(ellipse at 50% 40%, transparent 40%, rgba(5,7,10,0.85) 100%)",
         }}
       />
 
@@ -138,9 +131,9 @@ export const CadViewer = forwardRef<CadViewerHandle, Props>(function CadViewer(
               top: ry,
               width: rw,
               height: rh,
-              border: active ? "1.5px solid var(--color-signal-teal)" : "1px solid transparent",
-              boxShadow: active ? "0 0 0 1px rgba(45,230,196,0.15), 0 0 22px rgba(45,230,196,0.22)" : undefined,
-              background: isHovered && !isSelected ? "rgba(45,230,196,0.05)" : "transparent",
+              border: active ? "1.5px solid var(--color-signal-blue)" : "1px solid transparent",
+              boxShadow: active ? "0 0 0 3px rgba(37,99,235,0.1)" : undefined,
+              background: isHovered && !isSelected ? "rgba(37,99,235,0.04)" : "transparent",
             }}
             onMouseEnter={() => setHoveredRegion(region.id)}
             onMouseLeave={() => setHoveredRegion((r) => (r === region.id ? null : r))}
@@ -201,8 +194,8 @@ export const CadViewer = forwardRef<CadViewerHandle, Props>(function CadViewer(
                 <span className="absolute inset-0 animate-ping rounded-full" style={{ background: `${color}35` }} />
               )}
               <span
-                className="relative flex h-[18px] w-[18px] items-center justify-center rounded-full border"
-                style={{ background: "#0a0e14", borderColor: color }}
+                className="relative flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 shadow-sm"
+                style={{ background: "#ffffff", borderColor: color }}
               >
                 {flag.source === "sms" ? (
                   <Camera size={10} color={color} strokeWidth={2.5} />

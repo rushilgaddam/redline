@@ -13,6 +13,7 @@ class UserOut(BaseModel):
     discipline: str | None = None
     title: str | None = None
     avatar_color: str
+    avatar_url: str | None = None
     out_of_office: bool
     site_ids: list[str] = []
 
@@ -139,6 +140,8 @@ class KnowledgeSourceOut(BaseModel):
     display_name: str
     connected_by_user_id: str
     status: str
+    scope_kind: str
+    scope_items: list[str]
     connected_at: datetime
 
 
@@ -147,6 +150,13 @@ class KnowledgeSourceCreateIn(BaseModel):
     type: str
     display_name: str
     connected_by_user_id: str
+    scope_kind: str = "items"
+    scope_items: list[str] = []
+
+
+class KnowledgeSourceScopeAddIn(BaseModel):
+    item: str
+    actor_user_id: str | None = None
 
 
 class KnowledgeDocumentOut(BaseModel):
@@ -169,3 +179,60 @@ class KnowledgeDocumentCreateIn(BaseModel):
     occurred_at: datetime | None = None
     content: str
     keywords: list[str] = []
+
+
+class SiteOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    name: str
+    org_id: str
+
+
+class SiteSummaryOut(SiteOut):
+    drawing_count: int
+    active_drawing_count: int
+    open_flag_count: int
+    tentative_flag_count: int
+    resolved_flag_count: int
+    resolution_rate: int
+    collaborator_count: int
+
+
+class WorkstreamOut(BaseModel):
+    discipline: str
+    drawing_count: int
+    open_flag_count: int
+    resolved_flag_count: int
+    owner_id: str | None
+    owner_name: str | None
+    owner_avatar_color: str | None
+    owner_avatar_url: str | None
+
+
+class SiteOverviewOut(BaseModel):
+    site: SiteSummaryOut
+    workstreams: list[WorkstreamOut]
+
+
+class AuditEventOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    flag_id: str | None
+    drawing_id: str | None
+    site_id: str | None
+    actor: str
+    action: str
+    detail: str
+    created_at: datetime
+
+
+class AssistantAskIn(BaseModel):
+    engineer_id: str
+    question: str
+    site_id: str | None = None
+
+
+class AssistantAnswerOut(BaseModel):
+    text: str
+    flag_ids: list[str] = []
+    drawing_ids: list[str] = []

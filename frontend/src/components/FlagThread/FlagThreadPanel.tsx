@@ -34,14 +34,14 @@ export function FlagThreadPanel({
   useEffect(() => {
     setDetail(null);
     setReplyText("");
-    api.flag(flag.id).then(setDetail);
+    api.flag(flag.id).then(setDetail).catch(() => setDetail(null));
     if (flag.knowledge_reuse_flag_id) {
-      api.flag(flag.knowledge_reuse_flag_id).then(setReuseFlag);
+      api.flag(flag.knowledge_reuse_flag_id).then(setReuseFlag).catch(() => setReuseFlag(null));
     } else {
       setReuseFlag(null);
     }
     if (flag.site_knowledge_document_id) {
-      api.knowledgeDocument(flag.site_knowledge_document_id).then(setSiteDoc);
+      api.knowledgeDocument(flag.site_knowledge_document_id).then(setSiteDoc).catch(() => setSiteDoc(null));
     } else {
       setSiteDoc(null);
     }
@@ -200,7 +200,7 @@ export function FlagThreadPanel({
       {flag.status !== "resolved" ? (
         <div className="border-t border-ink-700 bg-ink-900/60 p-3">
           <div className="flex items-center gap-2 mb-2 text-[11px] text-ink-400">
-            {currentEngineer && <Avatar name={currentEngineer.name} color={currentEngineer.avatar_color} size={18} />}
+            {currentEngineer && <Avatar name={currentEngineer.name} color={currentEngineer.avatar_color} src={currentEngineer.avatar_url} size={18} />}
             Replying as {currentEngineer?.name ?? "—"} — delivered as an SMS to the technician
           </div>
           <textarea

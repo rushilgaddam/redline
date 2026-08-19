@@ -1,25 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import {
-  Mail,
-  MessagesSquare,
-  Plus,
-  StickyNote,
-  Trash2,
-  Unplug,
-} from "lucide-react";
+import { Check, Plus, Trash2, Unplug } from "lucide-react";
 import { api } from "../lib/api";
 import { useSession } from "../lib/session";
+import { SOURCE_TYPES, SOURCE_TYPE_MAP } from "../lib/knowledgeSourceTypes";
 import type { KnowledgeDocument, KnowledgeSource, KnowledgeSourceType, Site } from "../lib/types";
 import { ConnectSourceModal } from "../components/ConnectSourceModal";
 import { AddDocumentModal } from "../components/AddDocumentModal";
 import { timeAgo } from "../lib/format";
-
-const TYPE_ICON: Record<KnowledgeSourceType, React.ReactNode> = {
-  outlook: <Mail size={15} />,
-  teams: <MessagesSquare size={15} />,
-  manual: <StickyNote size={15} />,
-};
 
 export function SiteKnowledgePage() {
   const { currentEngineer } = useSession();
@@ -27,8 +15,9 @@ export function SiteKnowledgePage() {
   const [activeSiteId, setActiveSiteId] = useState<string | null>(null);
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
-  const [connectOpen, setConnectOpen] = useState(false);
+  const [connectType, setConnectType] = useState<KnowledgeSourceType | "any" | null>(null);
   const [addDocSource, setAddDocSource] = useState<KnowledgeSource | null>(null);
+  const [scopeDraft, setScopeDraft] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -66,16 +55,37 @@ export function SiteKnowledgePage() {
     setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
   }
 
-  const activeSite = sites.find((s) => s.id === activeSiteId);
+  async function grantScope(source: KnowledgeSource) {
+    if (!currentEngineer) return;
+    const draft = (scopeDraft[source.id] ?? "").trim();
+    if (!draft) return;
+    const meta = SOURCE_TYPE_MAP[source.type];
+    const item = `${meta.scopePrefix}: ${draft}`;
+    const updated = await api.addKnowledgeSourceScope(source.id, item, currentEngineer.id);
+    setSources((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+    setScopeDraft((prev) => ({ ...prev, [source.id]: "" }));
+  }
+
+  const connectedByType = useMemo(() => {
+    const map = new Map<KnowledgeSourceType, KnowledgeSource[]>();
+    for (const s of sources) {
+      const list = map.get(s.type) ?? [];
+      list.push(s);
+      map.set(s.type, list);
+    }
+    return map;
+  }, [sources]);
+
+  const availableTypes = SOURCE_TYPES.filter((t) => !connectedByType.get(t.key)?.length);
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-ink-700 px-6 py-4">
         <div>
-          <h1 className="text-[17px] font-bold text-ink-50">Site Knowledge</h1>
+          <h1 className="text-[17px] font-bold text-ink-50">Connectors</h1>
           <p className="text-[12px] text-ink-400">
-            Context sources this site's engineers have connected — emails, Teams threads, notes — so the AI can
-            answer with more than just the drawing itself.
+            The AI reads from this site's connected sources, at the scope each one was granted — never full
+            inbox or channel access.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -93,7 +103,7 @@ export function SiteKnowledgePage() {
             </select>
           )}
           <button
-            onClick={() => setConnectOpen(true)}
+            onClick={() => setConnectType("any")}
             className="flex items-center gap-1.5 rounded-lg bg-signal-teal px-3 py-1.5 text-[12.5px] font-semibold text-ink-950 shadow-[var(--shadow-glow-teal)] transition hover:brightness-110"
           >
             <Plus size={14} />
@@ -105,20 +115,10 @@ export function SiteKnowledgePage() {
       <div className="flex-1 overflow-y-auto px-6 py-5">
         {loading ? (
           <div className="text-[13px] text-ink-400">Loading…</div>
-        ) : sources.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-ink-700 bg-ink-850 text-ink-400">
-              <Mail size={20} />
-            </div>
-            <div className="text-[15px] font-semibold text-ink-100">No sources connected at {activeSite?.name}</div>
-            <p className="max-w-sm text-[12.5px] text-ink-400">
-              Connect Outlook, Teams, or add manual notes so technician questions at this plant can be answered from
-              real context, not just the drawing.
-            </p>
-          </div>
         ) : (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {sources.map((source) => {
+              const meta = SOURCE_TYPE_MAP[source.type];
               const docs = documents.filter((d) => d.source_id === source.id);
               return (
                 <motion.div
@@ -126,90 +126,152 @@ export function SiteKnowledgePage() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3 }}
-                  className="rounded-xl border border-ink-700 bg-ink-900/50"
+                  className="flex flex-col rounded-xl border border-ink-700 bg-ink-900/50"
                 >
-                  <div className="flex items-center gap-3 border-b border-ink-700 px-4 py-3">
-                    <div
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                        source.status === "connected" ? "bg-signal-teal/10 text-signal-teal" : "bg-ink-800 text-ink-500"
-                      }`}
-                    >
-                      {TYPE_ICON[source.type]}
+                  <div className="p-4">
+                    <div className="mb-2 flex items-start justify-between">
+                      <span
+                        className="flex h-9 w-9 items-center justify-center rounded-lg"
+                        style={{ background: meta.bg, color: meta.color }}
+                      >
+                        {meta.icon}
+                      </span>
+                      {source.status === "connected" ? (
+                        <span className="flex items-center gap-1 rounded-full bg-signal-teal/10 px-2 py-0.5 text-[10px] font-medium text-signal-teal">
+                          <Check size={10} /> Connected
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-ink-800 px-2 py-0.5 text-[10px] font-medium text-ink-500">
+                          Disconnected
+                        </span>
+                      )}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-[13px] font-medium text-ink-100">{source.display_name}</div>
-                      <div className="text-[11px] text-ink-500">
-                        {source.status === "connected" ? "Connected" : "Disconnected"} {timeAgo(source.connected_at)} ·{" "}
-                        {docs.length} item{docs.length === 1 ? "" : "s"}
+                    <div className="text-[13.5px] font-semibold text-ink-100">{source.display_name}</div>
+                    <div className="text-[11.5px] text-ink-400">{meta.description}</div>
+
+                    {source.scope_items.length > 0 && (
+                      <div className="mt-2.5 flex flex-wrap gap-1">
+                        {source.scope_items.map((item) => (
+                          <span
+                            key={item}
+                            className="rounded-full bg-signal-blue/10 px-2 py-0.5 text-[10px] font-medium text-signal-blue"
+                          >
+                            {item}
+                          </span>
+                        ))}
                       </div>
-                    </div>
+                    )}
+
                     {source.status === "connected" && (
-                      <>
+                      <div className="mt-2 flex items-center gap-1.5">
+                        <div className="flex flex-1 items-center rounded-md border border-ink-600 bg-ink-850 pl-2 text-[11.5px] text-ink-100 focus-within:border-signal-teal/50">
+                          <span className="shrink-0 text-ink-500">{meta.scopePrefix || "Add"}:</span>
+                          <input
+                            value={scopeDraft[source.id] ?? ""}
+                            onChange={(e) => setScopeDraft((prev) => ({ ...prev, [source.id]: e.target.value }))}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                grantScope(source);
+                              }
+                            }}
+                            placeholder={meta.scopePlaceholder || "note title"}
+                            className="min-w-0 flex-1 bg-transparent px-1.5 py-1.5 placeholder:text-ink-500 focus:outline-none"
+                          />
+                        </div>
                         <button
-                          onClick={() => setAddDocSource(source)}
-                          className="flex items-center gap-1 rounded-md border border-ink-600 px-2 py-1 text-[11.5px] text-ink-300 transition hover:border-signal-teal/40 hover:text-signal-teal"
+                          onClick={() => grantScope(source)}
+                          disabled={!(scopeDraft[source.id] ?? "").trim()}
+                          className="flex shrink-0 items-center justify-center rounded-md border border-ink-600 p-1.5 text-ink-300 hover:bg-ink-800 disabled:opacity-40"
+                          title={`Grant access to another ${meta.scopePrefix.toLowerCase() || "item"}`}
                         >
-                          <Plus size={12} /> Add item
+                          <Plus size={13} />
                         </button>
-                        <button
-                          onClick={() => disconnect(source)}
-                          className="flex items-center gap-1 rounded-md border border-ink-600 px-2 py-1 text-[11.5px] text-ink-400 transition hover:border-signal-coral/40 hover:text-signal-coral"
-                        >
-                          <Unplug size={12} /> Disconnect
-                        </button>
-                      </>
+                      </div>
                     )}
                   </div>
+
                   {docs.length > 0 && (
-                    <div className="divide-y divide-ink-800">
+                    <div className="max-h-52 divide-y divide-ink-800 overflow-y-auto border-t border-ink-700">
                       {docs.map((doc) => (
-                        <div key={doc.id} className="flex items-start gap-3 px-4 py-3">
+                        <div key={doc.id} className="flex items-start gap-2 px-4 py-2.5">
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[12.5px] font-medium text-ink-100">{doc.title}</span>
-                              {doc.author && <span className="text-[11px] text-ink-500">— {doc.author}</span>}
+                            <div className="flex items-center gap-1.5">
+                              <span className="truncate text-[12px] font-medium text-ink-100">{doc.title}</span>
                             </div>
-                            <p className="mt-0.5 line-clamp-2 text-[11.5px] leading-relaxed text-ink-400">
-                              {doc.content}
-                            </p>
-                            {doc.keywords.length > 0 && (
-                              <div className="mt-1.5 flex flex-wrap gap-1">
-                                {doc.keywords.map((k) => (
-                                  <span
-                                    key={k}
-                                    className="rounded-md bg-ink-800 px-1.5 py-0.5 font-mono text-[9.5px] text-ink-400"
-                                  >
-                                    {k}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
+                            <p className="line-clamp-2 text-[11px] leading-relaxed text-ink-400">{doc.content}</p>
                           </div>
                           <button
                             onClick={() => removeDocument(doc)}
                             className="shrink-0 rounded-md p-1 text-ink-500 transition hover:bg-signal-coral/10 hover:text-signal-coral"
                           >
-                            <Trash2 size={13} />
+                            <Trash2 size={12} />
                           </button>
                         </div>
                       ))}
                     </div>
                   )}
+
+                  <div className="mt-auto flex items-center justify-between border-t border-ink-700 px-4 py-2.5 text-[11px] text-ink-500">
+                    <span>
+                      {docs.length} item{docs.length === 1 ? "" : "s"} · connected {timeAgo(source.connected_at)}
+                    </span>
+                    {source.status === "connected" && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setAddDocSource(source)}
+                          className="text-ink-400 transition hover:text-signal-teal"
+                        >
+                          Add item
+                        </button>
+                        <button
+                          onClick={() => disconnect(source)}
+                          className="flex items-center gap-1 text-ink-400 transition hover:text-signal-coral"
+                        >
+                          <Unplug size={11} /> Disconnect
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </motion.div>
               );
             })}
+
+            {availableTypes.map((meta) => (
+              <motion.button
+                key={meta.key}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                onClick={() => setConnectType(meta.key)}
+                className="flex flex-col items-start rounded-xl border border-dashed border-ink-600 bg-ink-900/20 p-4 text-left transition hover:border-signal-teal/40 hover:bg-ink-900/40"
+              >
+                <span
+                  className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg opacity-80"
+                  style={{ background: meta.bg, color: meta.color }}
+                >
+                  {meta.icon}
+                </span>
+                <div className="text-[13.5px] font-semibold text-ink-100">{meta.label}</div>
+                <div className="text-[11.5px] text-ink-400">{meta.description}</div>
+                <span className="mt-3 flex items-center gap-1 text-[11.5px] font-medium text-signal-teal">
+                  <Plus size={12} /> Connect
+                </span>
+              </motion.button>
+            ))}
           </div>
         )}
       </div>
 
-      {connectOpen && activeSiteId && currentEngineer && (
+      {connectType && activeSiteId && currentEngineer && (
         <ConnectSourceModal
           siteId={activeSiteId}
           connectedByUserId={currentEngineer.id}
-          onClose={() => setConnectOpen(false)}
+          initialType={connectType === "any" ? undefined : connectType}
+          onClose={() => setConnectType(null)}
           onConnected={(source) => {
             setSources((prev) => [...prev, source]);
-            setConnectOpen(false);
+            setConnectType(null);
           }}
         />
       )}

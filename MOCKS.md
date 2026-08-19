@@ -149,6 +149,17 @@ pasted/typed by the engineer standing in for what a real sync would pull.
 Retrieval against ingested documents is the same token-overlap heuristic as
 `vision_agent.py`, not real embeddings/semantic search.
 
+**What's real (as of the connector-scope rework):** `KnowledgeSource.scope_items`
+is a genuinely enforced allow-list, not decoration — `POST /api/knowledge/sources`
+rejects any non-manual connection with an empty scope
+(`backend/app/routers/knowledge.py`), and the connector UI (`SiteKnowledgePage.tsx`,
+`ConnectSourceModal.tsx`) only ever lets an engineer name specific
+labels/folders/channels, never "everything." The mock is *what's behind*
+the connection (no real Graph API call), not *whether scope is tracked and
+required* — that part would carry over unchanged to a real OAuth
+integration, since it would just gate which folders/labels get requested
+in the consent screen.
+
 **What real needs:** Microsoft Graph API integration (Outlook Mail API,
 Teams chat/channel API) via OAuth on behalf of the connecting user or an
 org-level app registration; a real sync/webhook pipeline instead of
@@ -174,6 +185,39 @@ content. Retention policy, access scope (whose emails, which channels),
 and redaction all need a real design pass before this touches real data —
 today's mock sidesteps it entirely since content is manually pasted by the
 same engineer who'd be granting access.
+
+---
+
+## 🟡 Engineer AI assistant ("Ask anything")
+
+**File:** `backend/app/services/assistant.py`, `backend/app/routers/assistant.py`,
+frontend `components/AssistantChat.tsx`
+
+**What's real:** Every answer is computed live against the actual
+database — open/tentative/resolved counts, per-discipline breakdowns,
+overdue-by-SLA calculations, specific-drawing lookups — not a canned
+string and not a real LLM call. `POST /api/assistant/ask` genuinely
+queries flags/drawings scoped to the asking engineer (or site-wide for a
+reviewer) and returns real numbers.
+
+**What's mocked:** The natural-language *routing* — matching the
+engineer's free-text question to one of a handful of intents (pending /
+overdue / resolved-today / status-summary / specific-drawing) — is a
+deterministic keyword/regex matcher (`answer_question` in
+`assistant.py`), not real NLU. It only understands the phrasings it's
+built for; anything else gets an honest "here's what I can answer"
+fallback rather than a hallucinated guess.
+
+**What real needs:** Route the question through the same Claude API call
+that would eventually power vision/context answers, with these same
+DB-query functions exposed as tool calls — the computation layer here is
+already correct and wouldn't need to change, only the intent-matching
+layer would move from regex to a real model.
+
+**Accuracy validation plan (not yet run):** A labeled set of engineer
+questions phrased naturally (not matching the current regex patterns) to
+measure how often the fallback triggers on questions a real NLU layer
+should have handled — this is the main gap once graduated.
 
 ---
 

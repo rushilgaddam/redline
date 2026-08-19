@@ -569,11 +569,13 @@ def seed(db: Session):
         id=models.gen_id(), site_id=site_cary.id, type="outlook",
         display_name="Marisol Rivera's Outlook", connected_by_user_id=marisol.id,
         status="connected", connected_at=_now_minus(hours=72),
+        scope_kind="labels", scope_items=["Label: Panel B", "Label: Corrosion follow-up"],
     )
     grn_teams = models.KnowledgeSource(
         id=models.gen_id(), site_id=site_grn.id, type="teams",
         display_name="#line-4-electrical", connected_by_user_id=daniel.id,
         status="connected", connected_at=_now_minus(hours=50),
+        scope_kind="channels", scope_items=["Channel: #line-4-electrical"],
     )
     db.add_all([cary_outlook, grn_teams])
     db.flush()

@@ -16,6 +16,7 @@ export function RegionEditorPage() {
   const { refreshDrawings } = useStore();
 
   const [drawing, setDrawing] = useState<DrawingDetail | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [regions, setRegions] = useState<EditableRegion[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [drawMode, setDrawMode] = useState(false);
@@ -25,10 +26,13 @@ export function RegionEditorPage() {
 
   useEffect(() => {
     if (!drawingId) return;
-    api.drawing(drawingId).then((d) => {
-      setDrawing(d);
-      setRegions(d.regions.map((r) => ({ ...r })));
-    });
+    api
+      .drawing(drawingId)
+      .then((d) => {
+        setDrawing(d);
+        setRegions(d.regions.map((r) => ({ ...r })));
+      })
+      .catch(() => setNotFound(true));
   }, [drawingId]);
 
   const selected = useMemo(() => regions.find((r) => r.id === selectedId) ?? null, [regions, selectedId]);
@@ -51,6 +55,23 @@ export function RegionEditorPage() {
       setSaving(false);
       setConfirming(false);
     }
+  }
+
+  if (notFound) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+        <div className="text-[15px] font-semibold text-ink-100">Drawing not found</div>
+        <p className="max-w-sm text-[12.5px] text-ink-400">
+          This drawing may have been removed, or you're looking at a stale link from before a data reset.
+        </p>
+        <button
+          onClick={() => navigate("/drawings")}
+          className="rounded-lg border border-ink-600 px-3 py-1.5 text-[12.5px] font-medium text-ink-200 hover:bg-ink-800"
+        >
+          Back to Drawings
+        </button>
+      </div>
+    );
   }
 
   if (!drawing) {

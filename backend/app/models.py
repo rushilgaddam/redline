@@ -47,6 +47,7 @@ class User(Base):
     discipline: Mapped[str | None] = mapped_column(String, nullable=True)
     title: Mapped[str | None] = mapped_column(String, nullable=True)
     avatar_color: Mapped[str] = mapped_column(String, default="#3ee6c4")
+    avatar_url: Mapped[str | None] = mapped_column(String, nullable=True)
     backup_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     out_of_office: Mapped[bool] = mapped_column(Boolean, default=False)
     site_ids: Mapped[list] = mapped_column(JSON, default=list)
@@ -138,6 +139,7 @@ class AuditEvent(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=gen_id)
     flag_id: Mapped[str | None] = mapped_column(String, nullable=True)
     drawing_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    site_id: Mapped[str | None] = mapped_column(String, nullable=True)
     actor: Mapped[str] = mapped_column(String)
     action: Mapped[str] = mapped_column(String)
     detail: Mapped[str] = mapped_column(Text, default="")
@@ -154,6 +156,13 @@ class KnowledgeSource(Base):
     display_name: Mapped[str] = mapped_column(String)
     connected_by_user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
     status: Mapped[str] = mapped_column(String, default="connected")  # connected | disconnected
+    # What the connecting user actually granted access to — never blanket
+    # "read everything." scope_items are the specific labels/folders/channels
+    # named at connect time (e.g. "Label: CB-3 issues", "Folder: Panel B
+    # drawings"); scope_kind labels what kind of unit those are for this
+    # source type, purely for UI display.
+    scope_kind: Mapped[str] = mapped_column(String, default="items")
+    scope_items: Mapped[list] = mapped_column(JSON, default=list)
     connected_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
     documents: Mapped[list["KnowledgeDocument"]] = relationship(

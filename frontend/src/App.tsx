@@ -10,6 +10,11 @@ import { AddDrawingPage } from "./pages/AddDrawingPage";
 import { RegionEditorPage } from "./pages/RegionEditorPage";
 import { SiteKnowledgePage } from "./pages/SiteKnowledgePage";
 import { TechnicianSimulatorPage } from "./pages/TechnicianSimulatorPage";
+import { ProjectsListPage } from "./pages/ProjectsListPage";
+import { SiteDetailPage } from "./pages/SiteDetailPage";
+import { SiteOverviewTab } from "./pages/SiteOverviewTab";
+import { SiteActivityTab } from "./pages/SiteActivityTab";
+import { SiteSettingsTab } from "./pages/SiteSettingsTab";
 
 function RequireEngineer({ children }: { children: React.ReactNode }) {
   const { currentEngineer, loading } = useSession();
@@ -73,6 +78,26 @@ export default function App() {
               </RequireEngineer>
             }
           />
+          <Route
+            path="/projects"
+            element={
+              <RequireEngineer>
+                <ProjectsListPage />
+              </RequireEngineer>
+            }
+          />
+          <Route
+            path="/projects/:siteId"
+            element={
+              <RequireEngineer>
+                <SiteDetailPage />
+              </RequireEngineer>
+            }
+          >
+            <Route index element={<SiteOverviewTab />} />
+            <Route path="activity" element={<SiteActivityTab />} />
+            <Route path="settings" element={<SiteSettingsTab />} />
+          </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </DataProvider>

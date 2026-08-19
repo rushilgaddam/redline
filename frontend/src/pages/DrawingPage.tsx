@@ -21,6 +21,7 @@ export function DrawingPage() {
   const navigate = useNavigate();
 
   const [drawing, setDrawing] = useState<DrawingDetail | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [selectedFlagId, setSelectedFlagId] = useState<string | null>(null);
   const [showContext, setShowContext] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -29,11 +30,15 @@ export function DrawingPage() {
   useEffect(() => {
     if (!drawingId) return;
     setDrawing(null);
-    api.drawing(drawingId).then((d) => {
-      setDrawing(d);
-      const focus = searchParams.get("focus");
-      if (focus) setSelectedFlagId(focus);
-    });
+    setNotFound(false);
+    api
+      .drawing(drawingId)
+      .then((d) => {
+        setDrawing(d);
+        const focus = searchParams.get("focus");
+        if (focus) setSelectedFlagId(focus);
+      })
+      .catch(() => setNotFound(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drawingId]);
 
@@ -69,6 +74,23 @@ export function DrawingPage() {
     } finally {
       setTimeout(() => setScanning(false), 1400);
     }
+  }
+
+  if (notFound) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+        <div className="text-[15px] font-semibold text-ink-100">Drawing not found</div>
+        <p className="max-w-sm text-[12.5px] text-ink-400">
+          This drawing may have been removed, or you're looking at a stale link from before a data reset.
+        </p>
+        <button
+          onClick={() => navigate("/drawings")}
+          className="rounded-lg border border-ink-600 px-3 py-1.5 text-[12.5px] font-medium text-ink-200 hover:bg-ink-800"
+        >
+          Back to Drawings
+        </button>
+      </div>
+    );
   }
 
   if (!drawing) {
@@ -126,7 +148,7 @@ export function DrawingPage() {
           )}
           {author && (
             <div className="ml-1 flex items-center gap-2 rounded-lg border border-ink-700 bg-ink-850 px-2 py-1">
-              <Avatar name={author.name} color={author.avatar_color} size={22} />
+              <Avatar name={author.name} color={author.avatar_color} src={author.avatar_url} size={22} />
               <div className="pr-1 text-[11.5px] leading-tight text-ink-300">
                 <div className="font-medium text-ink-100">{author.name}</div>
                 <div className="text-ink-500">author of record</div>
@@ -180,9 +202,9 @@ export function DrawingPage() {
             </div>
           )}
           <div className="absolute right-6 top-6 flex flex-col gap-1.5 rounded-lg border border-ink-700 bg-ink-850/85 px-2.5 py-2 font-mono text-[10.5px] text-ink-400 backdrop-blur-sm">
-            <Legend color="#ff5c72" label="open" />
-            <Legend color="#ffb454" label="tentative" />
-            <Legend color="#2de6c4" label="resolved" />
+            <Legend color="#dc2626" label="open" />
+            <Legend color="#d97706" label="tentative" />
+            <Legend color="#059669" label="resolved" />
           </div>
         </div>
 
@@ -243,7 +265,7 @@ export function DrawingPage() {
                           <div
                             className="h-2 w-2 rounded-full"
                             style={{
-                              background: f.status === "open" ? "#ff5c72" : f.status === "answered" ? "#ffb454" : "#2de6c4",
+                              background: f.status === "open" ? "#dc2626" : f.status === "answered" ? "#d97706" : "#059669",
                             }}
                           />
                         )}

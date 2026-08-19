@@ -1,7 +1,7 @@
 function toneFor(pct: number) {
-  if (pct >= 65) return { fg: "var(--color-signal-teal)", bg: "rgba(45,230,196,0.14)" };
-  if (pct >= 40) return { fg: "var(--color-signal-amber)", bg: "rgba(255,180,84,0.14)" };
-  return { fg: "var(--color-signal-coral)", bg: "rgba(255,92,114,0.14)" };
+  if (pct >= 65) return { fg: "var(--color-signal-teal)", bg: "rgba(5,150,105,0.12)" };
+  if (pct >= 40) return { fg: "var(--color-signal-amber)", bg: "rgba(217,119,6,0.12)" };
+  return { fg: "var(--color-signal-coral)", bg: "rgba(220,38,38,0.12)" };
 }
 
 export function ConfidenceMeter({ value, size = 40 }: { value: number; size?: number }) {

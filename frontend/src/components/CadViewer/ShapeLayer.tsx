@@ -1,24 +1,24 @@
 import type { Shape } from "../../lib/types";
 
 const CLASS_STYLE: Record<string, { stroke?: string; fill?: string; sw?: number; dash?: string; opacity?: number }> = {
-  outline: { stroke: "#c9d6e5", sw: 1.5, fill: "none" },
-  detail: { stroke: "#7288a3", sw: 1, fill: "none" },
-  wire: { stroke: "#5ec8ff", sw: 1.3, fill: "none", opacity: 0.9 },
-  dim: { stroke: "#42566f", sw: 0.8, fill: "none" },
-  centerline: { stroke: "#3c516b", sw: 0.8, dash: "10 4 1.5 4", fill: "none" },
-  hatch: { stroke: "#33455c", sw: 0.6, fill: "none" },
-  guard: { stroke: "#ffb454", sw: 1.1, dash: "5 4", fill: "none", opacity: 0.85 },
-  leader: { stroke: "#42566f", sw: 0.8, dash: "3 3", fill: "none" },
-  sheet: { stroke: "#1c2839", sw: 1.2, fill: "none" },
-  "sheet-inner": { stroke: "#141d2b", sw: 0.6, fill: "none" },
+  outline: { stroke: "#27272a", sw: 1.5, fill: "none" },
+  detail: { stroke: "#71717a", sw: 1, fill: "none" },
+  wire: { stroke: "#2563eb", sw: 1.3, fill: "none" },
+  dim: { stroke: "#a1a1aa", sw: 0.8, fill: "none" },
+  centerline: { stroke: "#a1a1aa", sw: 0.8, dash: "10 4 1.5 4", fill: "none" },
+  hatch: { stroke: "#d4d4d8", sw: 0.6, fill: "none" },
+  guard: { stroke: "#d97706", sw: 1.1, dash: "5 4", fill: "none", opacity: 0.85 },
+  leader: { stroke: "#a1a1aa", sw: 0.8, dash: "3 3", fill: "none" },
+  sheet: { stroke: "#d4d4d8", sw: 1.2, fill: "none" },
+  "sheet-inner": { stroke: "#e4e4e7", sw: 0.6, fill: "none" },
 };
 
 const TEXT_CLASS: Record<string, { fill: string; weight?: number; letterSpacing?: number; family?: string }> = {
-  label: { fill: "#9db0c7", letterSpacing: 0.5 },
-  "dim-label": { fill: "#5c7089" },
-  tag: { fill: "#7288a3" },
-  "zone-label": { fill: "#28374a" },
-  "gdt-sym": { fill: "#2de6c4", weight: 700 },
+  label: { fill: "#52525b", letterSpacing: 0.5 },
+  "dim-label": { fill: "#a1a1aa" },
+  tag: { fill: "#71717a" },
+  "zone-label": { fill: "#d4d4d8" },
+  "gdt-sym": { fill: "#2563eb", weight: 700 },
 };
 
 function Def({ id }: { id: string }) {
@@ -32,7 +32,7 @@ function Def({ id }: { id: string }) {
       markerHeight="6"
       orient="auto-start-reverse"
     >
-      <path d="M0,0 L10,5 L0,10 z" fill="#42566f" />
+      <path d="M0,0 L10,5 L0,10 z" fill="#a1a1aa" />
     </marker>
   );
 }
@@ -41,13 +41,6 @@ export function ShapeDefs() {
   return (
     <defs>
       <Def id="arrow" />
-      <filter id="wireGlow" x="-50%" y="-50%" width="200%" height="200%">
-        <feGaussianBlur stdDeviation="1.6" result="blur" />
-        <feMerge>
-          <feMergeNode in="blur" />
-          <feMergeNode in="SourceGraphic" />
-        </feMerge>
-      </filter>
     </defs>
   );
 }
@@ -63,7 +56,6 @@ export function ShapeLayer({ shapes }: { shapes: Shape[] }) {
           strokeDasharray: style.dash,
           fill: style.fill,
           opacity: style.opacity,
-          filter: s.class === "wire" ? "url(#wireGlow)" : undefined,
         };
 
         switch (s.type) {

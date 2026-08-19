@@ -1,4 +1,6 @@
 import type {
+  AssistantAnswer,
+  AuditEvent,
   ConversationItem,
   DrawingDetail,
   DrawingSummary,
@@ -10,6 +12,8 @@ import type {
   KnowledgeSourceType,
   Region,
   Site,
+  SiteOverview,
+  SiteSummary,
   SmsInboundResult,
   User,
 } from "./types";
@@ -32,6 +36,17 @@ export const api = {
   users: (role?: string) => req<User[]>(`/users${role ? `?role=${role}` : ""}`),
   user: (id: string) => req<User>(`/users/${id}`),
   sites: () => req<Site[]>(`/users/sites/all`),
+  uploadAvatar: async (userId: string, file: File): Promise<User> => {
+    const body = new FormData();
+    body.append("file", file);
+    const res = await fetch(`${BASE}/users/${userId}/avatar`, { method: "POST", body });
+    if (!res.ok) {
+      const detail = await res.json().catch(() => null);
+      throw new Error(detail?.detail ?? `${res.status} ${res.statusText}`);
+    }
+    return res.json();
+  },
+  removeAvatar: (userId: string) => req<User>(`/users/${userId}/avatar`, { method: "DELETE" }),
 
   drawings: (siteId?: string) => req<DrawingSummary[]>(`/drawings${siteId ? `?site_id=${siteId}` : ""}`),
   drawing: (id: string) => req<DrawingDetail>(`/drawings/${id}`),
@@ -117,9 +132,16 @@ export const api = {
     type: KnowledgeSourceType;
     display_name: string;
     connected_by_user_id: string;
+    scope_kind?: string;
+    scope_items?: string[];
   }) => req<KnowledgeSource>(`/knowledge/sources`, { method: "POST", body: JSON.stringify(payload) }),
   disconnectKnowledgeSource: (id: string) =>
     req<KnowledgeSource>(`/knowledge/sources/${id}/disconnect`, { method: "POST" }),
+  addKnowledgeSourceScope: (id: string, item: string, actorUserId: string) =>
+    req<KnowledgeSource>(`/knowledge/sources/${id}/scope`, {
+      method: "POST",
+      body: JSON.stringify({ item, actor_user_id: actorUserId }),
+    }),
   knowledgeDocuments: (params: { siteId?: string; sourceId?: string } = {}) => {
     const qs = new URLSearchParams();
     if (params.siteId) qs.set("site_id", params.siteId);
@@ -137,4 +159,12 @@ export const api = {
   }) => req<KnowledgeDocument>(`/knowledge/documents`, { method: "POST", body: JSON.stringify(payload) }),
   deleteKnowledgeDocument: (id: string) => req<{ ok: boolean }>(`/knowledge/documents/${id}`, { method: "DELETE" }),
   knowledgeDocument: (id: string) => req<KnowledgeDocument>(`/knowledge/documents/${id}`),
+
+  assistantAsk: (payload: { engineer_id: string; question: string; site_id?: string | null }) =>
+    req<AssistantAnswer>(`/assistant/ask`, { method: "POST", body: JSON.stringify(payload) }),
+
+  siteSummaries: () => req<SiteSummary[]>(`/sites`),
+  siteOverview: (siteId: string) => req<SiteOverview>(`/sites/${siteId}/overview`),
+  siteActivity: (siteId: string, limit = 50) => req<AuditEvent[]>(`/sites/${siteId}/activity?limit=${limit}`),
+  siteCollaborators: (siteId: string) => req<User[]>(`/sites/${siteId}/collaborators`),
 };

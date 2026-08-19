@@ -12,6 +12,7 @@ export interface User {
   discipline: string | null;
   title: string | null;
   avatar_color: string;
+  avatar_url: string | null;
   out_of_office: boolean;
   site_ids: string[];
 }
@@ -125,7 +126,51 @@ export interface Site {
   org_id: string;
 }
 
-export type KnowledgeSourceType = "outlook" | "teams" | "manual";
+export interface SiteSummary extends Site {
+  drawing_count: number;
+  active_drawing_count: number;
+  open_flag_count: number;
+  tentative_flag_count: number;
+  resolved_flag_count: number;
+  resolution_rate: number;
+  collaborator_count: number;
+}
+
+export interface Workstream {
+  discipline: string;
+  drawing_count: number;
+  open_flag_count: number;
+  resolved_flag_count: number;
+  owner_id: string | null;
+  owner_name: string | null;
+  owner_avatar_color: string | null;
+  owner_avatar_url: string | null;
+}
+
+export interface SiteOverview {
+  site: SiteSummary;
+  workstreams: Workstream[];
+}
+
+export interface AuditEvent {
+  id: string;
+  flag_id: string | null;
+  drawing_id: string | null;
+  site_id: string | null;
+  actor: string;
+  action: string;
+  detail: string;
+  created_at: string;
+}
+
+export type KnowledgeSourceType =
+  | "outlook"
+  | "teams"
+  | "google_drive"
+  | "gmail"
+  | "google_sheets"
+  | "google_calendar"
+  | "manual";
 
 export interface KnowledgeSource {
   id: string;
@@ -134,7 +179,15 @@ export interface KnowledgeSource {
   display_name: string;
   connected_by_user_id: string;
   status: "connected" | "disconnected";
+  scope_kind: string;
+  scope_items: string[];
   connected_at: string;
+}
+
+export interface AssistantAnswer {
+  text: string;
+  flag_ids: string[];
+  drawing_ids: string[];
 }
 
 export interface KnowledgeDocument {

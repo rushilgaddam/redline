@@ -7,6 +7,7 @@ interface SessionState {
   engineers: User[];
   loading: boolean;
   setCurrentEngineer: (u: User) => void;
+  updateCurrentEngineer: (u: User) => void;
   logout: () => void;
 }
 
@@ -43,6 +44,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setCurrentEngineer: (u) => {
         localStorage.setItem(STORAGE_KEY, u.id);
         setCurrentEngineerState(u);
+      },
+      updateCurrentEngineer: (u) => {
+        setCurrentEngineerState(u);
+        setEngineers((prev) => prev.map((e) => (e.id === u.id ? u : e)));
       },
       logout: () => {
         localStorage.removeItem(STORAGE_KEY);
