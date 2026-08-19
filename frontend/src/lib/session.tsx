@@ -44,6 +44,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setCurrentEngineer: (u) => {
         localStorage.setItem(STORAGE_KEY, u.id);
         setCurrentEngineerState(u);
+        setEngineers((prev) => (prev.some((e) => e.id === u.id) ? prev : [...prev, u]));
       },
       updateCurrentEngineer: (u) => {
         setCurrentEngineerState(u);

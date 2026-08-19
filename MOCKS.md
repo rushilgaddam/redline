@@ -262,14 +262,32 @@ the actual MMS-to-storage pipeline mentioned above.
 
 ---
 
-## 🔴 Auth (SSO/SAML for engineers)
+## 🟡 Auth (SSO/SAML for engineers)
 
-**What's mocked:** "Login" is picking an engineer from a list — no
-password, no SSO, no session/token of any kind.
+**File:** `backend/app/routers/users.py` (`/register`, `/login`), `frontend/src/pages/LoginPage.tsx`
 
-**What real needs:** SSO/SAML via an IdP integration (WorkOS/Auth0 per §9),
-row-level security enforcing org/site/discipline scoping server-side
-(today every endpoint trusts whatever `actor_user_id` the client sends).
+**What's real:** Registration and sign-in are genuine lookups against the
+database, not a fixed roster — `POST /api/users/register` creates a real
+`User` row (validating role, requiring a project selection, normalizing
+phone numbers, deduping by email/phone so signing up again just joins a
+new project instead of creating a duplicate account) and `POST
+/api/users/login` does a real query by email (engineer/reviewer) or phone
+(technician), 404ing with an honest "no account found" if it doesn't
+exist rather than silently succeeding.
+
+**What's mocked:** There's no password, session, or token at all — the
+login form doesn't even collect a password, matching the same "identity
+without credentials" pattern the technician SMS flow already used
+(phone number *is* the identity, no login). Nothing stops any client from
+claiming to be any `user_id`/`actor_user_id` — every endpoint still trusts
+whatever the client sends, unchanged from before.
+
+**What real needs:** SSO/SAML via an IdP integration (WorkOS/Auth0 per §9)
+for engineers/reviewers, a real session/token instead of "store the user id
+in localStorage," and row-level security enforcing org/site/discipline
+scoping server-side so a client can't act as a user it isn't authenticated
+as — the registration/lookup logic built here wouldn't need to change, only
+what sits in front of it.
 
 ---
 

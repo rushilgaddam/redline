@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Building2 } from "lucide-react";
+import { Building2, UserPlus } from "lucide-react";
 import { api } from "../lib/api";
 import type { Site, User } from "../lib/types";
 import { Avatar } from "../components/Avatar";
 import { ProfilePhotoButton } from "../components/ProfilePhotoButton";
+import { AddCollaboratorModal } from "../components/AddCollaboratorModal";
 import { useSession } from "../lib/session";
 
 const ROLE_BADGE: Record<string, string> = {
@@ -18,6 +19,7 @@ export function SiteSettingsTab() {
   const { siteId, site } = useOutletContext<{ siteId: string; site: Site | null }>();
   const { currentEngineer } = useSession();
   const [collaborators, setCollaborators] = useState<User[] | null>(null);
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     api.siteCollaborators(siteId).then(setCollaborators);
@@ -45,9 +47,18 @@ export function SiteSettingsTab() {
       </div>
 
       <div className="rounded-xl border border-ink-700 bg-ink-900/50">
-        <div className="border-b border-ink-700 px-4 py-3">
-          <div className="text-[13px] font-semibold text-ink-100">Collaborators</div>
-          <div className="text-[11.5px] text-ink-400">Engineers, reviewers, and technicians assigned to this site.</div>
+        <div className="flex items-center justify-between border-b border-ink-700 px-4 py-3">
+          <div>
+            <div className="text-[13px] font-semibold text-ink-100">Collaborators</div>
+            <div className="text-[11.5px] text-ink-400">Engineers, reviewers, and technicians assigned to this site.</div>
+          </div>
+          <button
+            onClick={() => setAdding(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-ink-600 px-2.5 py-1.5 text-[11.5px] font-medium text-ink-300 hover:bg-ink-800"
+          >
+            <UserPlus size={13} />
+            Add
+          </button>
         </div>
         {!collaborators ? (
           <div className="px-4 py-6 text-[12.5px] text-ink-400">Loading…</div>
@@ -82,6 +93,17 @@ export function SiteSettingsTab() {
           </div>
         )}
       </div>
+
+      {adding && (
+        <AddCollaboratorModal
+          siteId={siteId}
+          onClose={() => setAdding(false)}
+          onAdded={(u) => {
+            setCollaborators((prev) => (prev?.some((c) => c.id === u.id) ? prev : [...(prev ?? []), u]));
+            setAdding(false);
+          }}
+        />
+      )}
     </div>
   );
 }

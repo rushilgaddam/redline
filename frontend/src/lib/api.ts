@@ -27,7 +27,14 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`${res.status} ${res.statusText}: ${body}`);
+    const detail = (() => {
+      try {
+        return JSON.parse(body)?.detail;
+      } catch {
+        return undefined;
+      }
+    })();
+    throw new Error(typeof detail === "string" ? detail : `${res.status} ${res.statusText}: ${body}`);
   }
   return res.json() as Promise<T>;
 }
@@ -47,6 +54,17 @@ export const api = {
     return res.json();
   },
   removeAvatar: (userId: string) => req<User>(`/users/${userId}/avatar`, { method: "DELETE" }),
+  register: (payload: {
+    role: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    discipline?: string;
+    title?: string;
+    site_ids: string[];
+  }) => req<User>(`/users/register`, { method: "POST", body: JSON.stringify(payload) }),
+  login: (payload: { role: string; identifier: string }) =>
+    req<User>(`/users/login`, { method: "POST", body: JSON.stringify(payload) }),
 
   drawings: (siteId?: string) => req<DrawingSummary[]>(`/drawings${siteId ? `?site_id=${siteId}` : ""}`),
   drawing: (id: string) => req<DrawingDetail>(`/drawings/${id}`),

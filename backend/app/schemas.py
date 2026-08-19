@@ -18,6 +18,21 @@ class UserOut(BaseModel):
     site_ids: list[str] = []
 
 
+class UserRegisterIn(BaseModel):
+    role: str
+    name: str
+    email: str | None = None
+    phone: str | None = None
+    discipline: str | None = None
+    title: str | None = None
+    site_ids: list[str] = []
+
+
+class UserLoginIn(BaseModel):
+    role: str
+    identifier: str
+
+
 class RegionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str

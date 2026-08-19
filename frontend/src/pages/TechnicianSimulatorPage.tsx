@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, Camera, CheckCircle2, ChevronDown, Loader2, MapPin, QrCode, ScanText, Send, Signal, Wifi, X } from "lucide-react";
 import clsx from "clsx";
 import { api } from "../lib/api";
@@ -24,7 +24,9 @@ interface LocalBubble {
 
 export function TechnicianSimulatorPage() {
   const navigate = useNavigate();
-  const { users, drawings, upsertFlag, upsertDrawing } = useStore();
+  const location = useLocation();
+  const preselectTechnicianId = (location.state as { technicianId?: string } | null)?.technicianId ?? null;
+  const { users, drawings, upsertFlag, upsertDrawing, refreshDrawings } = useStore();
   const technicians = useMemo(() => users.filter((u) => u.role === "technician"), [users]);
 
   const [technician, setTechnician] = useState<User | null>(null);
@@ -49,8 +51,10 @@ export function TechnicianSimulatorPage() {
   }, []);
 
   useEffect(() => {
-    if (technicians.length && !technician) setTechnician(technicians[0]);
-  }, [technicians, technician]);
+    if (!technicians.length || technician) return;
+    const preselected = preselectTechnicianId ? technicians.find((t) => t.id === preselectTechnicianId) : null;
+    setTechnician(preselected ?? technicians[0]);
+  }, [technicians, technician, preselectTechnicianId]);
 
   const technicianSites = useMemo(
     () => sites.filter((s) => technician?.site_ids.includes(s.id)),
@@ -168,7 +172,16 @@ export function TechnicianSimulatorPage() {
       </button>
 
       <div className="absolute right-6 top-6 w-64 space-y-2">
-        <TechnicianPicker technicians={technicians} current={technician} onSelect={setTechnician} />
+        <TechnicianPicker
+          technicians={technicians}
+          current={technician}
+          sites={sites}
+          onSelect={setTechnician}
+          onRegistered={async (u) => {
+            await refreshDrawings();
+            setTechnician(u);
+          }}
+        />
         <PlantPicker
           sites={technicianSites}
           current={sites.find((s) => s.id === activeSiteId) ?? null}
@@ -449,13 +462,43 @@ export function TechnicianSimulatorPage() {
 function TechnicianPicker({
   technicians,
   current,
+  sites,
   onSelect,
+  onRegistered,
 }: {
   technicians: User[];
   current: User | null;
+  sites: Site[];
   onSelect: (u: User) => void;
+  onRegistered: (u: User) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [siteId, setSiteId] = useState<string | null>(sites[0]?.id ?? null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submitRegister(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || !phone.trim() || !siteId) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const u = await api.register({ role: "technician", name, phone, site_ids: [siteId] });
+      onRegistered(u);
+      setOpen(false);
+      setRegistering(false);
+      setName("");
+      setPhone("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't register");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <div className="relative">
       <button
@@ -470,19 +513,72 @@ function TechnicianPicker({
       </button>
       {open && (
         <div className="absolute right-0 top-full mt-1.5 w-full overflow-hidden rounded-lg border border-ink-600 bg-ink-850 shadow-2xl">
-          {technicians.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => {
-                onSelect(t);
-                setOpen(false);
-              }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12.5px] text-ink-100 hover:bg-ink-700"
-            >
-              {t.name}
-              <span className="ml-auto font-mono text-[10px] text-ink-500">{formatPhone(t.phone)}</span>
-            </button>
-          ))}
+          {!registering ? (
+            <>
+              {technicians.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => {
+                    onSelect(t);
+                    setOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12.5px] text-ink-100 hover:bg-ink-700"
+                >
+                  {t.name}
+                  <span className="ml-auto font-mono text-[10px] text-ink-500">{formatPhone(t.phone)}</span>
+                </button>
+              ))}
+              <button
+                onClick={() => setRegistering(true)}
+                className="w-full border-t border-ink-700 px-3 py-2 text-left text-[11.5px] font-medium text-signal-teal hover:bg-ink-700"
+              >
+                + Register new technician
+              </button>
+            </>
+          ) : (
+            <form onSubmit={submitRegister} className="space-y-2 p-3">
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Full name"
+                className="w-full rounded-md border border-ink-600 bg-ink-900 px-2.5 py-1.5 text-[12px] text-ink-100 placeholder:text-ink-500 focus:border-signal-teal/50 focus:outline-none"
+              />
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Phone, e.g. 555-234-1122"
+                className="w-full rounded-md border border-ink-600 bg-ink-900 px-2.5 py-1.5 text-[12px] text-ink-100 placeholder:text-ink-500 focus:border-signal-teal/50 focus:outline-none"
+              />
+              <select
+                value={siteId ?? ""}
+                onChange={(e) => setSiteId(e.target.value)}
+                className="w-full rounded-md border border-ink-600 bg-ink-900 px-2.5 py-1.5 text-[12px] text-ink-100 focus:border-signal-teal/50 focus:outline-none"
+              >
+                {sites.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              {error && <div className="text-[11px] text-signal-coral">{error}</div>}
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setRegistering(false)}
+                  className="flex-1 rounded-md border border-ink-600 py-1.5 text-[11.5px] text-ink-300 hover:bg-ink-800"
+                >
+                  Back
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting || !name.trim() || !phone.trim()}
+                  className="flex-1 rounded-md bg-signal-teal py-1.5 text-[11.5px] font-semibold text-ink-950 disabled:opacity-50"
+                >
+                  Add
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       )}
     </div>

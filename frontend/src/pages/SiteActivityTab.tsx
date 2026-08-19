@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Bot, FileText, MessageSquare, PlugZap, ShieldCheck, User as UserIcon } from "lucide-react";
+import { Bot, FileText, MessageSquare, PlugZap, ShieldCheck, User as UserIcon, UserPlus } from "lucide-react";
 import { api } from "../lib/api";
 import type { AuditEvent } from "../lib/types";
 import { timeAgo } from "../lib/format";
@@ -20,6 +20,9 @@ const ACTION_META: Record<string, { icon: React.ReactNode; label: string; agent:
   knowledge_source_connected: { icon: <PlugZap size={13} />, label: "connected a source", agent: false },
   knowledge_scope_granted: { icon: <PlugZap size={13} />, label: "granted access", agent: false },
   knowledge_document_ingested: { icon: <FileText size={13} />, label: "added a knowledge item", agent: false },
+  user_registered: { icon: <UserPlus size={13} />, label: "joined this project", agent: false },
+  user_joined_project: { icon: <UserPlus size={13} />, label: "was added to this project", agent: false },
+  avatar_updated: { icon: <UserIcon size={13} />, label: "updated their profile photo", agent: false },
 };
 
 export function SiteActivityTab() {
