@@ -10,6 +10,52 @@ Status legend: 🔴 not started · 🟡 mocked · 🟢 real
 
 ---
 
+## 🟢 Title-block OCR equipment resolution
+
+**File:** `backend/app/services/title_block_ocr.py`, tests in
+`backend/tests/test_title_block_ocr.py`
+
+**What's real:** Genuinely real, not mocked — a title-block thumbnail is
+rendered per drawing (standing in for the photo a technician would take of
+the drawing's bottom-right corner) and Tesseract (`pytesseract`, local
+binary, no API key) actually reads the pixels. `resolve_by_title_block`
+never trusts which drawing the client claims it photographed — only what
+OCR extracts from the image file on disk, validated against real rows in
+the database.
+
+**What's simulated:** The camera. The technician simulator's "scan title
+block" picker lets you choose *which* stored image to feed the pipeline
+(there's no real camera in a browser demo), but everything downstream is a
+real OCR call, same as the DXF/PDF parsing in `ingest.py`.
+
+**Measured accuracy** (see `test_title_block_ocr.py`, 15 tests, all
+passing): resolves correctly through mild blur, low contrast, dim
+lighting, JPEG compression at quality 25, and skew up to ±14° (via a
+rotation-retry sweep — °3/6/10/14 in both directions). **Known failure
+modes, tested and documented, not guessed:** skew beyond ~±14°, heavy
+blur, and low-resolution/far-away shots all currently fail to resolve.
+Critically — and this is the property that actually matters — every
+failure mode tested fails *closed* (returns no match, falls through to the
+normal ask-flow) rather than resolving to the wrong drawing; there's an
+explicit regression test for this
+(`test_never_resolves_to_the_wrong_drawing`).
+
+**A real bug this caught:** the first version of the rotation-retry sweep
+returned on the first *non-empty* OCR read rather than the first *correct*
+one — a misread (e.g. an em-dash glyph read as "£") still counts as
+non-empty, so the sweep was silently a no-op until the retry loop was
+rewritten to validate each candidate against a real row in the database.
+Caught by the accuracy tests, not by inspection — worth remembering as the
+general lesson for anything else that gets "graduated" out of mock status.
+
+**Real-world gap still open:** the title-block *content* itself is
+synthetic (rendered from the drawing's own stored fields), not a photo of
+an actual physical drawing. Real accuracy against real phone photos —
+warped paper, reflections, partial occlusion, handwritten
+revision-clouds — is untested and will differ from these numbers.
+
+---
+
 ## 🟡 Vision + Context Agent (technician SMS answers)
 
 **File:** `backend/app/services/vision_agent.py`

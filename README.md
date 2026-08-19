@@ -10,9 +10,13 @@ are all real logic, just running against a deterministic mock vision/AI service 
 
 ## Run it
 
-**Backend** (FastAPI + SQLite, seeds itself on first boot):
+**Backend** (FastAPI + SQLite, seeds itself on first boot). Requires the Tesseract OCR binary on
+your system (real OCR, not mocked — see "Title-block scanning" below):
 
 ```
+brew install tesseract          # macOS
+# apt-get install tesseract-ocr # Debian/Ubuntu
+
 cd backend
 python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 ./venv/bin/uvicorn app.main:app --reload --port 8000
@@ -49,3 +53,19 @@ as a direct escalation, never a tentative AI answer (§3.5 of the architecture d
 A technician can also mark a drawing's physical build as complete (`status = closed`) from the
 simulator once a QR tag is scanned. A new technician flag against a closed drawing automatically
 reopens it.
+
+## Title-block scanning (real OCR)
+
+In the technician simulator, the scan-text icon next to the QR button lets a technician "photograph"
+a drawing's title block instead of scanning a tag. This one is genuinely real, not mocked: a title
+block is rendered per drawing and Tesseract actually reads the pixels to resolve which drawing it
+is — the server never trusts which image the client says it sent, only what OCR extracts. See
+`MOCKS.md` for the measured accuracy (skew, blur, lighting, compression) and known failure modes,
+and `backend/tests/test_title_block_ocr.py` for the accuracy test suite
+(`./venv/bin/pytest tests/test_title_block_ocr.py -v`).
+
+## Tracking what's mocked
+
+`MOCKS.md` is a living inventory of every place this prototype fakes something a real deployment
+would need to do for real — what's faked, what real implementation requires, and how to validate
+accuracy once it exists. Update it whenever a mock changes or graduates to real.

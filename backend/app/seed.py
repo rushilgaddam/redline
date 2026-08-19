@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from . import models
 from .services import blueprint_kit as bp
+from .services import title_block_ocr
 
 W, H = 1000, 680
 
@@ -444,6 +445,10 @@ def seed(db: Session):
     ]
 
     db.flush()
+
+    # Real title-block thumbnails for the OCR resolver — see title_block_ocr.py.
+    for drawing, author in ((d1, marisol), (d2, priya), (d3, daniel)):
+        title_block_ocr.save_title_block_image(drawing, author.name)
 
     # ---------------- CAD-QA flags for the already-scanned drawing (d1)
     for f in d1.cad_qa_findings:

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Camera, CheckCircle2, ChevronDown, Loader2, MapPin, QrCode, Send, Signal, Wifi, X } from "lucide-react";
+import { ArrowLeft, Camera, CheckCircle2, ChevronDown, Loader2, MapPin, QrCode, ScanText, Send, Signal, Wifi, X } from "lucide-react";
 import clsx from "clsx";
 import { api } from "../lib/api";
 import { useStore } from "../lib/store";
@@ -37,6 +37,8 @@ export function TechnicianSimulatorPage() {
   const [photoPicker, setPhotoPicker] = useState(false);
   const [tagDrawing, setTagDrawing] = useState<DrawingSummary | null>(null);
   const [tagPicker, setTagPicker] = useState(false);
+  const [titleBlockDrawingId, setTitleBlockDrawingId] = useState<string | null>(null);
+  const [titleBlockPicker, setTitleBlockPicker] = useState(false);
   const [candidates, setCandidates] = useState<DrawingSummary[]>([]);
   const [sending, setSending] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -93,12 +95,14 @@ export function TechnicianSimulatorPage() {
         text: messageText,
         photo_ref: photoRef,
         asset_tag_drawing_id: overrideDrawingId ?? tagDrawing?.id ?? null,
+        title_block_photo_drawing_id: overrideDrawingId ? null : titleBlockDrawingId,
         site_id: activeSiteId,
       });
       setLocalBubbles((b) => [
         ...b,
         { id: crypto.randomUUID(), sender: "incoming", text: res.reply_text, at: new Date().toISOString() },
       ]);
+      setTitleBlockDrawingId(null);
       if (res.flag) upsertFlag(res.flag);
       if (res.candidates.length) setCandidates(res.candidates);
       if (technician) {
@@ -297,6 +301,15 @@ export function TechnicianSimulatorPage() {
               </button>
             </div>
           )}
+          {titleBlockDrawingId && (
+            <div className="mb-1.5 flex items-center gap-1.5 rounded-lg bg-signal-violet/10 px-2 py-1 text-[10.5px] text-signal-violet">
+              <ScanText size={11} />
+              Title block photo attached — OCR will read it on send
+              <button onClick={() => setTitleBlockDrawingId(null)} className="ml-auto text-ink-400 hover:text-white">
+                <X size={11} />
+              </button>
+            </div>
+          )}
           {photoRef && (
             <div className="mb-1.5 flex items-center gap-2">
               <PhotoCard photoRef={photoRef} size="sm" />
@@ -325,6 +338,16 @@ export function TechnicianSimulatorPage() {
               title="Simulate scanning an asset QR tag"
             >
               <QrCode size={16} />
+            </button>
+            <button
+              onClick={() => setTitleBlockPicker((v) => !v)}
+              className={clsx(
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition",
+                titleBlockDrawingId ? "bg-signal-violet text-ink-950" : "bg-ink-800 text-ink-300 hover:bg-ink-700",
+              )}
+              title="Text a photo of the drawing's title block — the real Tesseract OCR reads it"
+            >
+              <ScanText size={16} />
             </button>
             <textarea
               value={text}
@@ -385,6 +408,34 @@ export function TechnicianSimulatorPage() {
                 >
                   <QrCode size={12} className="text-signal-teal" />
                   {d.drawing_number} — {d.title}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {titleBlockPicker && (
+            <div className="mt-2 max-h-64 space-y-1.5 overflow-y-auto rounded-xl border border-ink-700 bg-ink-900 p-2">
+              <div className="px-1 pb-1 text-[9.5px] uppercase tracking-wide text-ink-500">
+                Photograph a title block — real OCR reads whichever one you pick
+              </div>
+              {drawingsAtSite.length === 0 && (
+                <div className="px-2 py-2 text-[11px] text-ink-500">No drawings at this plant yet.</div>
+              )}
+              {drawingsAtSite.map((d) => (
+                <button
+                  key={d.id}
+                  onClick={() => {
+                    setTitleBlockDrawingId(d.id);
+                    setTitleBlockPicker(false);
+                  }}
+                  className="flex w-full items-center gap-2 overflow-hidden rounded-lg border border-ink-700 bg-ink-850 p-1.5 text-left transition hover:border-signal-violet/50"
+                >
+                  <img
+                    src={api.titleBlockImageUrl(d.id)}
+                    alt={`${d.drawing_number} title block`}
+                    className="h-10 w-24 shrink-0 rounded object-cover"
+                  />
+                  <span className="min-w-0 truncate text-[11px] text-ink-300">{d.title}</span>
                 </button>
               ))}
             </div>

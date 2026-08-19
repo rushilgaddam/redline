@@ -106,7 +106,9 @@ export const api = {
     asset_tag_drawing_id?: string | null;
     drawing_id_override?: string | null;
     site_id?: string | null;
+    title_block_photo_drawing_id?: string | null;
   }) => req<SmsInboundResult>(`/sms/inbound`, { method: "POST", body: JSON.stringify(payload) }),
+  titleBlockImageUrl: (drawingId: string) => `/uploads/${drawingId}_titleblock.png`,
 
   knowledgeSources: (siteId?: string) =>
     req<KnowledgeSource[]>(`/knowledge/sources${siteId ? `?site_id=${siteId}` : ""}`),

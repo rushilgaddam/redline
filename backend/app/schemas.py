@@ -94,6 +94,7 @@ class SmsInboundIn(BaseModel):
     asset_tag_drawing_id: str | None = None
     drawing_id_override: str | None = None
     site_id: str | None = None
+    title_block_photo_drawing_id: str | None = None
 
 
 class SmsInboundOut(BaseModel):

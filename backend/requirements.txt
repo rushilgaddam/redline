@@ -6,3 +6,8 @@ python-multipart==0.0.9
 websockets==13.1
 ezdxf==1.4.4
 pymupdf==1.28.2
+pytesseract==0.3.13
+pillow==12.3.0
+
+# dev/test only
+pytest==8.3.5

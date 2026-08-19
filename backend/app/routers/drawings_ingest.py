@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
-from ..services import ingest
+from ..services import ingest, title_block_ocr
 
 router = APIRouter(prefix="/api/drawings", tags=["drawings-ingest"])
 
@@ -45,6 +45,7 @@ async def ingest_drawing(
     )
     db.add(drawing)
     db.flush()
+    title_block_ocr.save_title_block_image(drawing, author.name)
 
     for i, region in enumerate(parsed.regions):
         px, py, pw, ph = region.px

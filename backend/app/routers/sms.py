@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
-from ..services import equipment_resolver, knowledge_reuse, routing, vision_agent
+from ..services import equipment_resolver, knowledge_reuse, routing, title_block_ocr, vision_agent
 from ..ws_manager import manager
 
 router = APIRouter(prefix="/api/sms", tags=["sms"])
@@ -76,9 +76,24 @@ async def sms_inbound(body: schemas.SmsInboundIn, db: Session = Depends(get_db))
     current_site_id = body.site_id if body.site_id in tech_site_ids else (
         tech_site_ids[0] if len(tech_site_ids) == 1 else None
     )
-    drawing, method, candidates = equipment_resolver.resolve_drawing(
-        db, technician.id, body.asset_tag_drawing_id or body.drawing_id_override, tech_site_ids, current_site_id
-    )
+
+    drawing, method, candidates, ocr_note = None, "", [], None
+    if body.title_block_photo_drawing_id:
+        image_path = title_block_ocr.title_block_path(body.title_block_photo_drawing_id)
+        ocr_drawing, ocr_fields = title_block_ocr.resolve_by_title_block(db, image_path)
+        if ocr_drawing:
+            drawing, method = ocr_drawing, "title_block_ocr"
+            ocr_note = f"Read title block: {ocr_fields['drawing_number']} Rev {ocr_fields['revision'] or '?'}."
+        else:
+            db.add(models.AuditEvent(
+                id=models.gen_id(), actor="title_block_ocr", action="ocr_resolution_failed",
+                detail=f"raw_text={ocr_fields['raw_text'][:200]!r}",
+            ))
+
+    if not drawing:
+        drawing, method, candidates = equipment_resolver.resolve_drawing(
+            db, technician.id, body.asset_tag_drawing_id or body.drawing_id_override, tech_site_ids, current_site_id
+        )
 
     if not drawing:
         return schemas.SmsInboundOut(
@@ -126,11 +141,22 @@ async def sms_inbound(body: schemas.SmsInboundIn, db: Session = Depends(get_db))
     db.add(models.Message(id=models.gen_id(), flag_id=flag.id, sender="technician",
                            sender_name=technician.name, text=body.text, photo_ref=body.photo_ref))
 
-    reply_parts = []
+    # A real SMS reply is one message — everything that goes into it (OCR
+    # confirmation, a past-resolution citation, then the answer/escalation
+    # itself) needs to end up in the single persisted Message row too, not
+    # just the transient reply_text returned from this request. Otherwise the
+    # technician's thread looks different after a reload than what they
+    # actually received — see the regression this fixed in MOCKS.md-adjacent
+    # notes: the OCR pipeline was resolving correctly the whole time, only
+    # the persisted history was silently dropping the "Read title block…"
+    # confirmation.
+    prefix_notes = []
+    if ocr_note:
+        prefix_notes.append(ocr_note)
     if reuse_match:
         engineer_msgs = [m for m in reuse_match.messages if m.sender == "engineer"]
         past_fix = engineer_msgs[-1].text if engineer_msgs else (reuse_match.ai_diagnosis or "")
-        reply_parts.append(
+        prefix_notes.append(
             f"FYI, a similar question on this drawing was resolved before: \"{reuse_match.note[:90]}\" — "
             f"the fix was: {past_fix[:180]} "
             f"Still routing this to the engineer in case your case is different."
@@ -140,14 +166,16 @@ async def sms_inbound(body: schemas.SmsInboundIn, db: Session = Depends(get_db))
         ai_text = f"Tentative answer ({vision.confidence:.0f}% confidence) — {vision.diagnosis}"
         if vision.site_knowledge_document:
             ai_text += f" (cross-referenced with \"{vision.site_knowledge_document.title}\")"
-        reply_parts.append(ai_text)
-        db.add(models.Message(id=models.gen_id(), flag_id=flag.id, sender="ai", sender_name="Redline AI", text=ai_text))
+        full_text = " ".join([*prefix_notes, ai_text])
+        db.add(models.Message(id=models.gen_id(), flag_id=flag.id, sender="ai", sender_name="Redline AI", text=full_text))
     else:
         routed_engineer = db.get(models.User, routed_to)
         reason = "This drawing needs manual verification first" if needs_review else vision.reasoning
         sys_text = f"Sent to {routed_engineer.name} for a direct look. ({reason})"
-        reply_parts.append(sys_text)
-        db.add(models.Message(id=models.gen_id(), flag_id=flag.id, sender="system", sender_name="Redline", text=sys_text))
+        full_text = " ".join([*prefix_notes, sys_text])
+        db.add(models.Message(id=models.gen_id(), flag_id=flag.id, sender="system", sender_name="Redline", text=full_text))
+
+    reply_parts = [full_text]
 
     db.add(models.AuditEvent(
         id=models.gen_id(), flag_id=flag.id, drawing_id=drawing.id, actor="system",
