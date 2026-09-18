@@ -136,7 +136,7 @@ export function DrawingPage() {
             <BookOpen size={13} />
             Context
           </button>
-          {!drawing.cad_qa_scanned && (
+          {!drawing.cad_qa_scanned ? (
             <button
               onClick={runScan}
               disabled={scanning}
@@ -145,6 +145,25 @@ export function DrawingPage() {
               {scanning ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
               {scanning ? "Scanning…" : "Run CAD-QA scan"}
             </button>
+          ) : (
+            flags.filter((f) => f.source === "cad_qa").length === 0 && (
+              <div
+                title={
+                  drawing.cad_qa_checks_available
+                    ? "Deterministic checks (dangling endpoints, duplicate tags, orphaned labels) ran against this drawing's real geometry and found nothing."
+                    : "This drawing has no automated CAD-QA detection logic behind it (e.g. PDF ingestion, or pre-existing data) — a clean scan here isn't a guarantee, just an absence of findings."
+                }
+                className={clsx(
+                  "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium",
+                  drawing.cad_qa_checks_available
+                    ? "border-signal-teal/25 bg-signal-teal/5 text-signal-teal"
+                    : "border-ink-600 bg-ink-850 text-ink-400",
+                )}
+              >
+                <Sparkles size={13} />
+                {drawing.cad_qa_checks_available ? "CAD-QA scanned — clean" : "Scanned — no checks available"}
+              </div>
+            )
           )}
           {author && (
             <div className="ml-1 flex items-center gap-2 rounded-lg border border-ink-700 bg-ink-850 px-2 py-1">
@@ -247,7 +266,9 @@ export function DrawingPage() {
               <div className="flex-1 overflow-y-auto p-2">
                 {sortedFlags.length === 0 && (
                   <div className="px-3 py-8 text-center text-[12.5px] text-ink-500">
-                    No flags yet. This drawing is clean.
+                    {drawing.cad_qa_scanned
+                      ? "No flags yet."
+                      : "No flags yet — and this drawing hasn't been CAD-QA scanned."}
                   </div>
                 )}
                 {sortedFlags.map((f) => {

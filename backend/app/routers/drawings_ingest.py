@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
-from ..services import auth, ingest, title_block_ocr
+from ..services import auth, cad_qa_checks, ingest, title_block_ocr
 
 router = APIRouter(prefix="/api/drawings", tags=["drawings-ingest"])
 
@@ -51,15 +51,31 @@ async def ingest_drawing(
     db.flush()
     title_block_ocr.save_title_block_image(drawing, author.name)
 
+    region_refs: list[cad_qa_checks.RegionRef] = []
     for i, region in enumerate(parsed.regions):
         px, py, pw, ph = region.px
-        db.add(models.Region(
+        db_region = models.Region(
             id=models.gen_id(), drawing_id=drawing.id, label=f"Region {i + 1}",
             description=f"Auto-detected cluster of {region.weight} drawing entities — rename and confirm.",
             keywords=[], known_issues=[],
             bbox_x=round(px / ingest.W * 100, 2), bbox_y=round(py / ingest.H * 100, 2),
             bbox_w=round(pw / ingest.W * 100, 2), bbox_h=round(ph / ingest.H * 100, 2),
+        )
+        db.add(db_region)
+        db.flush()
+        region_refs.append(cad_qa_checks.RegionRef(
+            id=db_region.id, label=db_region.label, bbox=(px, py, px + pw, py + ph),
         ))
+
+    # Real tier-1 CAD-QA (services/cad_qa_checks.py) — only meaningful for
+    # DXF, where we have real text/line entity geometry to check, not just
+    # a flattened shape list. `checks_available` is what lets the UI tell
+    # "scanned, clean" apart from "no detection logic ran on this drawing."
+    if parsed.checks_available:
+        drawing.cad_qa_findings = cad_qa_checks.run_deterministic_checks(
+            parsed.text_entities, parsed.line_segments, region_refs, parsed.circle_centers,
+        )
+        drawing.cad_qa_checks_available = True
 
     db.add(models.AuditEvent(
         id=models.gen_id(), drawing_id=drawing.id, actor=author.name, action="ingested",

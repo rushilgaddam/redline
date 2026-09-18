@@ -109,33 +109,59 @@ just reading the code):**
 
 ## 🟡 CAD-QA background agent (proactive drawing scan)
 
-**File:** `backend/app/services/cad_qa.py`
+**File:** `backend/app/services/cad_qa.py`, `backend/app/services/cad_qa_checks.py`
+(tier 1, real), `backend/tests/test_cad_qa_checks.py`
 
-**What's mocked:** `run_cad_qa_scan` only replays a hardcoded list of
-findings (`Drawing.cad_qa_findings`) written by hand for the 3 seed
-drawings. There is **no actual detection logic** — no wire-endpoint/BOM
-cross-reference, no orphaned-reference check, no GD&T/critic pass. For any
-drawing added through the real ingestion flow, `cad_qa_findings` is `[]`, so
-clicking "Run scan" silently returns zero findings — indistinguishable in
-the UI from "scanned, found nothing clean." That's a known gap (see below).
+**What's real (as of the tier-1 rework):** Tier 1 — the deterministic,
+zero-model-call checks §6 calls for — is now real for any drawing ingested
+via DXF upload. `cad_qa_checks.py` runs three genuine geometric/text checks
+against the drawing's own parsed entities at ingest time (`ingest.parse_dxf`
+now keeps real `text_entities`/`line_segments`/`circle_centers`, not just
+the flattened SVG shape list that used to be all that survived parsing):
+1. **Dangling wire endpoint** — a line endpoint with no other line endpoint,
+   terminal/junction circle, or label within tolerance. DXF carries no
+   netlist, so this is a geometric proxy for continuity, not true net
+   tracing — documented as such, and it fails toward flagging-for-review,
+   never toward silently "fixing" anything.
+2. **Duplicate reference designator across regions** — the same equipment
+   tag (K1, TB-1, CB-3, ...) found inside two different auto-suggested
+   regions. A tag repeating *within* one region (its own symbol + its own
+   label) is normal and correctly not flagged — only a cross-region repeat
+   is, which is the actual "same tag, two different things" failure shape.
+3. **Unclustered label** — a real equipment-tag-shaped text entity that
+   falls outside every suggested region's bounding box.
+`Drawing.cad_qa_checks_available` is set `True` only when these actually
+ran (DXF ingests), letting the UI (`DrawingPage.tsx`) tell "scanned, clean"
+apart from "scanned, but no detection logic exists for this drawing" —
+closes the exact known gap this section used to flag. 9 unit tests on the
+pure check functions plus one full ingest-endpoint integration test (a
+real in-memory DXF built with `ezdxf`, containing a deliberately duplicated
+tag, asserted to surface a real `duplicate_reference_designator` finding
+through the actual `/api/drawings/ingest` pipeline) in `test_cad_qa_checks.py`.
 
-**What real needs:** Two tiers per §6 —
-1. Deterministic, zero-model-call checks (wire endpoint → real connector pin,
-   part number → BOM, no orphaned refs, no duplicate pin assignments) —
-   fully buildable now against parsed DXF entities (`ingest.py` already
-   extracts real geometry), no Sonnet needed.
-2. A differently-prompted critic-agent pass + ensembling for GD&T/cross-view
-   reasoning only, with a hard confidence floor gating what reaches
-   technicians as "ready."
-
-**Known UI gap to fix:** distinguish "scanned, clean" from "scanned, no
-detection logic exists for this drawing" — right now they look identical.
+**What's still mocked:** Everything not covered above —
+- No wire-endpoint→BOM or part-number→BOM cross-reference (no BOM data
+  exists anywhere in this prototype to check against).
+- No duplicate-pin-assignment check in the true ECAD sense (pin/net data
+  isn't in a DXF at all — the duplicate-designator check above is the
+  closest geometric proxy available without a real netlist).
+- Tier 2 — the critic-agent pass for GD&T/cross-view reasoning — is still
+  entirely unbuilt; a differently-prompted model pass + ensembling, with a
+  hard confidence floor gating what reaches technicians as "ready," per §6.
+- The 3 seed drawings' findings are still hand-authored (representing what
+  a full real system, tier 1 + tier 2, would eventually surface) rather
+  than tier-1-computed — `cad_qa_checks_available` stays `False` on those,
+  honestly reflecting that the real check code never actually ran on them.
+- PDF ingestion still gets no deterministic checks at all (no reliable
+  text/line entity split from a raster-backed PDF the way DXF gives one).
 
 **Accuracy validation plan:** Precision/recall against drawings with known,
-injected defects (e.g. deliberately mismatched wire counts, orphaned pin
-refs) for the deterministic tier — this is checkable today, no model
-needed. For the critic-pass tier: inter-rater agreement between the model
-and a human reviewer on a held-out set of real drawing defects.
+injected defects for tier 1 is now partially exercised (the ezdxf-built
+fixture in `test_cad_qa_checks.py`) but not yet run against a larger corpus
+of real, varied DXF exports — that's the next step before trusting false-
+positive/false-negative rates at any scale. Tier 2 still needs inter-rater
+agreement between the model and a human reviewer on a held-out set of real
+drawing defects, unchanged from before.
 
 ---
 

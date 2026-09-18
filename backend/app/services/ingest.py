@@ -37,6 +37,16 @@ class ParsedDrawing:
     layout: dict
     regions: list[RegionSuggestion] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    # Real DXF entity geometry, kept around (in the same transformed layout
+    # px space as `regions`) so cad_qa.py can run genuine deterministic
+    # checks against it — reference-designator text and line endpoints,
+    # not just the flattened SVG shape list. Only populated for DXF, since
+    # a PDF's vector paths don't carry this kind of semantic entity split
+    # (see cad_qa.py's checks_available flag).
+    text_entities: list[dict] = field(default_factory=list)  # [{"text","x","y"}]
+    line_segments: list[tuple] = field(default_factory=list)  # [(x1,y1,x2,y2)]
+    circle_centers: list[tuple] = field(default_factory=list)  # [(cx,cy)] — terminals/junctions
+    checks_available: bool = False
 
 
 def _fit_transform(xmin, ymin, xmax, ymax, flip_y: bool):
@@ -184,6 +194,9 @@ def parse_dxf(data: bytes) -> ParsedDrawing:
 
     shapes = list(bp.sheet_frame(W, H))
     cluster_boxes: list[tuple[float, float, float, float]] = []
+    text_entities: list[dict] = []
+    line_segments: list[tuple] = []
+    circle_centers: list[tuple] = []
 
     for kind, d in raw_entities:
         if kind == "line":
@@ -191,6 +204,7 @@ def parse_dxf(data: bytes) -> ParsedDrawing:
             x2, y2 = transform(d["x2"], d["y2"])
             shapes.append(bp.line(x1, y1, x2, y2, "outline"))
             cluster_boxes.append((min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)))
+            line_segments.append((x1, y1, x2, y2))
         elif kind == "polyline":
             pts = [transform(x, y) for x, y in d["pts"]]
             if d["closed"] and pts[0] != pts[-1]:
@@ -203,6 +217,7 @@ def parse_dxf(data: bytes) -> ParsedDrawing:
             r = d["r"] * scale
             shapes.append(bp.circle(cx, cy, r, "outline"))
             cluster_boxes.append((cx - r, cy - r, cx + r, cy + r))
+            circle_centers.append((cx, cy))
         elif kind == "arc":
             cx, cy = d["cx"], d["cy"]
             r = d["r"]
@@ -220,6 +235,7 @@ def parse_dxf(data: bytes) -> ParsedDrawing:
             x, y = transform(d["x"], d["y"])
             size = max(7, min(15, d["height"] * scale * 1.4))
             shapes.append(bp.text(x, y, d["text"][:60], "label", size, "start"))
+            text_entities.append({"text": d["text"], "x": x, "y": y})
 
     margin = 0.015 * max(W, H)
     regions = _cluster(cluster_boxes, margin)
@@ -230,7 +246,11 @@ def parse_dxf(data: bytes) -> ParsedDrawing:
             f"{MAX_CLUSTER_ENTITIES}; add any missed ones manually."
         )
 
-    return ParsedDrawing(layout={"viewBox": [0, 0, W, H], "shapes": shapes}, regions=regions, warnings=warnings)
+    return ParsedDrawing(
+        layout={"viewBox": [0, 0, W, H], "shapes": shapes}, regions=regions, warnings=warnings,
+        text_entities=text_entities, line_segments=line_segments, circle_centers=circle_centers,
+        checks_available=True,
+    )
 
 
 # --------------------------------------------------------------------------- PDF

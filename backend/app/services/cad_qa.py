@@ -4,9 +4,13 @@ critic-agent pass over spatial/symbolic callouts. Findings become flags with
 source=cad_qa, region_id set directly (no photo, no technician thread), routed
 to the drawing's author to confirm.
 
-This module simulates the outcome of that pipeline using findings authored at
-seed time (representing what the deterministic + critic passes would surface),
-rather than re-deriving them at request time.
+Tier 1 (deterministic) is real for any drawing ingested via DXF upload —
+see `cad_qa_checks.py`, which runs at ingest time against the drawing's own
+parsed geometry and populates `Drawing.cad_qa_findings` for real. This
+module just turns whatever findings ended up on the drawing (real, from
+cad_qa_checks.py, or seed-time hand-authored ones standing in for what tier
+2's critic-agent pass would add) into flags — it doesn't care which kind
+they are.
 """
 from sqlalchemy.orm import Session
 

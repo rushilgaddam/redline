@@ -74,8 +74,15 @@ class Drawing(Base):
     revision_notes: Mapped[str] = mapped_column(Text, default="")
     confidence_floor_status: Mapped[str] = mapped_column(String, default="verified")  # verified | needs_review
     layout: Mapped[dict] = mapped_column(JSON, default=dict)  # rendering instructions for the CAD viewer
-    cad_qa_findings: Mapped[list] = mapped_column(JSON, default=list)  # seeded background-scan findings
+    cad_qa_findings: Mapped[list] = mapped_column(JSON, default=list)  # background-scan findings
     cad_qa_scanned: Mapped[bool] = mapped_column(Boolean, default=False)
+    # True only when real deterministic checks (services/cad_qa_checks.py)
+    # actually ran against this drawing's own geometry at ingest time — DXF
+    # uploads only. Lets the UI tell "scanned, clean" apart from "scanned,
+    # but no detection logic exists for this drawing" (PDF ingests, and
+    # legacy/seed drawings with hand-authored findings) instead of the two
+    # looking identical, which MOCKS.md called out as a known gap.
+    cad_qa_checks_available: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(String, default="active")  # active | closed
     closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)

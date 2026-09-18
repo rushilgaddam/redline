@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
-from ..services import cad_qa
+from ..services import auth, cad_qa
 from ..ws_manager import manager
 
 router = APIRouter(prefix="/api/drawings", tags=["drawings"])
@@ -29,7 +29,11 @@ def get_drawing(drawing_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/{drawing_id}/cad-qa-scan", response_model=schemas.CadQaRunOut)
-async def run_cad_qa(drawing_id: str, db: Session = Depends(get_db)):
+async def run_cad_qa(
+    drawing_id: str, db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    auth.require_engineer(current_user)
     drawing = db.get(models.Drawing, drawing_id)
     if not drawing:
         raise HTTPException(404, "Drawing not found")

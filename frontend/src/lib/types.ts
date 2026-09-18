@@ -90,6 +90,7 @@ export interface DrawingDetail extends DrawingSummary {
   revision_notes: string;
   layout: DrawingLayout;
   cad_qa_scanned: boolean;
+  cad_qa_checks_available: boolean;
   regions: Region[];
   flags: Flag[];
 }

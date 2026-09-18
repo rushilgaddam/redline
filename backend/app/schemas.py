@@ -110,6 +110,7 @@ class DrawingDetailOut(DrawingSummaryOut):
     revision_notes: str
     layout: dict
     cad_qa_scanned: bool
+    cad_qa_checks_available: bool
     regions: list[RegionOut]
     flags: list[FlagOut]
 
