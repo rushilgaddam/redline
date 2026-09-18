@@ -3,11 +3,16 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
-from ..services import auth, cad_qa_checks, ingest, title_block_ocr
+from ..services import auth, cad_qa_checks, ingest, region_labeling, title_block_ocr
 
 router = APIRouter(prefix="/api/drawings", tags=["drawings-ingest"])
 
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
+# Same margin ingest._cluster used to group entities into a region in the
+# first place, just generous enough to catch a label sitting just outside
+# its own cluster's bounding box (very common — a designator is often
+# printed just above/beside its symbol, not literally inside it).
+LABEL_SEARCH_RADIUS = 0.015 * max(ingest.W, ingest.H) * region_labeling.MAX_LABEL_SEARCH_MULTIPLE
 
 
 @router.post("/ingest", response_model=schemas.IngestWarningsOut)
@@ -54,18 +59,34 @@ async def ingest_drawing(
     region_refs: list[cad_qa_checks.RegionRef] = []
     for i, region in enumerate(parsed.regions):
         px, py, pw, ph = region.px
+        bbox_px = (px, py, px + pw, py + ph)
+        # Real region auto-labeling (region_labeling.py) — a deterministic
+        # proximity read of the drawing's own real text entities, not a
+        # placeholder. Falls back to the honest generic label when nothing
+        # legible is nearby, same fail-closed shape as title_block_ocr.py.
+        proposal = (
+            region_labeling.propose_label(bbox_px, parsed.text_entities, LABEL_SEARCH_RADIUS)
+            if parsed.text_entities else None
+        )
+        if proposal:
+            label = proposal.label
+            description = (
+                f"Auto-detected cluster of {region.weight} drawing entities, labeled from the nearby "
+                f"{'reference designator' if proposal.from_designator else 'text'} \"{proposal.source_text}\" "
+                f"— confirm or rename."
+            )
+        else:
+            label = f"Region {i + 1}"
+            description = f"Auto-detected cluster of {region.weight} drawing entities — rename and confirm."
         db_region = models.Region(
-            id=models.gen_id(), drawing_id=drawing.id, label=f"Region {i + 1}",
-            description=f"Auto-detected cluster of {region.weight} drawing entities — rename and confirm.",
+            id=models.gen_id(), drawing_id=drawing.id, label=label, description=description,
             keywords=[], known_issues=[],
             bbox_x=round(px / ingest.W * 100, 2), bbox_y=round(py / ingest.H * 100, 2),
             bbox_w=round(pw / ingest.W * 100, 2), bbox_h=round(ph / ingest.H * 100, 2),
         )
         db.add(db_region)
         db.flush()
-        region_refs.append(cad_qa_checks.RegionRef(
-            id=db_region.id, label=db_region.label, bbox=(px, py, px + pw, py + ph),
-        ))
+        region_refs.append(cad_qa_checks.RegionRef(id=db_region.id, label=db_region.label, bbox=bbox_px))
 
     # Real tier-1 CAD-QA (services/cad_qa_checks.py) — only meaningful for
     # DXF, where we have real text/line entity geometry to check, not just

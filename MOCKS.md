@@ -165,25 +165,51 @@ drawing defects, unchanged from before.
 
 ---
 
-## 🟡 CAD-QA region labeling on ingestion
+## 🟢 CAD-QA region labeling on ingestion
 
-**File:** `backend/app/services/ingest.py`
+**File:** `backend/app/services/region_labeling.py`,
+`backend/app/routers/drawings_ingest.py`, tests in `test_region_labeling.py`
 
-**What's mocked:** Region *geometry* is real (see below), but region
-*names/descriptions* are generic placeholders ("Region 1," "Auto-detected
-cluster of N entities") — no semantic labeling. The engineer renames them
-by hand in the region editor before confirming.
+**What's real (as of the labeling rework):** A region no longer defaults to
+the generic "Region N" placeholder when there's real text nearby to use
+instead. `region_labeling.propose_label` does a deterministic proximity
+read of the drawing's own real DXF text entities (the same
+`text_entities` tier-1 CAD-QA already needed — see the section above) —
+searching outward from each auto-suggested region's bounding box within a
+radius scaled to the clustering margin, preferring a reference-designator-
+shaped tag (K1, TB-1, CB-3, ...) used verbatim, and falling back to the
+nearest short plain-text note otherwise. When nothing legible is nearby it
+keeps the honest generic placeholder rather than guessing — same fail-
+closed shape as `title_block_ocr.py`. 6 unit tests plus one full ingest-
+endpoint integration test (`test_region_labeling.py`) cover the priority
+order (designator beats closer plain text), the stopword guard, the
+overlong-text guard, and the no-match fallback.
 
-**What real needs:** A pass that reads each cluster's entities (text labels
-in/near it, symbol shapes) and proposes a real name — this is a good fit for
-a cheap/fast model call (Haiku-class) per cluster, since it's a narrow,
-bounded task, not a full-drawing read.
+**Deliberate scope, not an oversight:** This is *not* the "Haiku-class
+model call" MOCKS.md originally called for — it's the deterministic floor
+under that: free, instant, and correct whenever the tag is positioned near
+its own symbol (true often enough — title blocks, reference designators
+next to their component — to be worth having for real now), but it won't
+read symbol *shapes* the way a real vision-capable model pass eventually
+should, and won't help when a drawing's labeling convention puts the tag
+somewhere non-adjacent. A real model-based pass over cluster geometry +
+nearby text is still the better long-run answer for the general case.
 
-**What's real already:** DXF parsing (`ezdxf`, including block/`INSERT`
-expansion) and PDF vector-path extraction (`pymupdf`) are genuine — actual
-file geometry, not fabricated. Spatial clustering into region candidates is
-a real deterministic algorithm (union-find over entity bounding boxes), not
-mocked, just unlabeled.
+**A real limitation this surfaced, not guessed:** the search radius is a
+multiple of the clustering margin, which is itself relative to the sheet
+size the drawing gets fit into — so a very small/sparse DXF (most of its
+extent unused) gets blown up to fill the sheet, and "near" in raw CAD units
+can end up farther in on-screen px than the radius allows. Real, normally-
+proportioned drawings aren't affected; a synthetic or heavily-cropped
+export might need its label placed closer than a full-size drawing would.
+
+**What's real already, unchanged:** DXF parsing (`ezdxf`, including
+block/`INSERT` expansion) and PDF vector-path extraction (`pymupdf`) are
+genuine — actual file geometry, not fabricated. Spatial clustering into
+region candidates is a real deterministic algorithm (union-find over
+entity bounding boxes). PDF ingestion still gets no auto-label at all — no
+reliable text/line entity split from a raster-backed PDF the way DXF gives
+one, same boundary as tier-1 CAD-QA above.
 
 ---
 
@@ -388,7 +414,14 @@ per-customer.
   `pymupdf`) — actual file parsing, not fabricated.
 - Region spatial clustering (union-find over entity bounding boxes) — a
   real deterministic algorithm.
+- Region auto-labeling from the drawing's own nearby text (`region_labeling.py`)
+  and tier-1 CAD-QA deterministic checks (`cad_qa_checks.py`) — both real
+  geometric/text passes over parsed DXF entities, not placeholders or a
+  model call.
+- Password auth + signed session tokens for engineers/reviewers
+  (`services/auth.py`) — every engineer-facing mutating endpoint verifies
+  the acting identity server-side instead of trusting a client-sent id.
 - Confidence-gate control flow, routing/backup-chain logic, drawing
   open/closed lifecycle, audit trail, real-time WebSocket sync — all real
   application logic; only the *judgment calls* feeding into them (vision
-  scoring, CAD-QA findings, retrieval) are mocked.
+  scoring, retrieval) are mocked.
