@@ -287,30 +287,61 @@ the actual MMS-to-storage pipeline mentioned above.
 
 ## 🟡 Auth (SSO/SAML for engineers)
 
-**File:** `backend/app/routers/users.py` (`/register`, `/login`), `frontend/src/pages/LoginPage.tsx`
+**File:** `backend/app/services/auth.py`, `backend/app/routers/users.py`
+(`/register`, `/login`, `/{id}/demo-login`), `frontend/src/pages/LoginPage.tsx`,
+`backend/tests/test_auth.py`
 
-**What's real:** Registration and sign-in are genuine lookups against the
-database, not a fixed roster — `POST /api/users/register` creates a real
-`User` row (validating role, requiring a project selection, normalizing
-phone numbers, deduping by email/phone so signing up again just joins a
-new project instead of creating a duplicate account) and `POST
+**What's real (as of the password/session rework):** Registration and
+sign-in are genuine lookups against the database, not a fixed roster —
+`POST /api/users/register` creates a real `User` row (validating role,
+requiring a project selection, normalizing phone numbers) and `POST
 /api/users/login` does a real query by email (engineer/reviewer) or phone
-(technician), 404ing with an honest "no account found" if it doesn't
-exist rather than silently succeeding.
+(technician). Engineer/reviewer accounts now have a real password: bcrypt
+hashing (`bcrypt`, no plaintext ever stored), a signed JWT session token
+issued on register/login/demo-login (`PyJWT`, HS256, 12h expiry, secret
+from `REDLINE_JWT_SECRET`), and a `get_current_user` FastAPI dependency
+that decodes and verifies that token — applied to every engineer-facing
+mutating endpoint (`flags` reply/resolve, `drawings` ingest/regions/confirm,
+`knowledge` source-connect/scope/documents, `assistant/ask`, avatar
+upload/remove). Those endpoints now attribute the action to whoever the
+verified token names, not to whatever `actor_user_id`/`engineer_id` the
+request body claims — see `test_cannot_reply_to_a_flag_with_a_forged_actor_id`
+for the regression test on the exact hole this closes (a client used to be
+able to reply to a flag "as" any engineer just by changing a body field).
+Re-registering with an email that already has a password set now requires
+that password — closes the account-takeover shape where "register again
+with someone else's email" silently merged you into their account and
+handed back a session for it.
 
-**What's mocked:** There's no password, session, or token at all — the
-login form doesn't even collect a password, matching the same "identity
-without credentials" pattern the technician SMS flow already used
-(phone number *is* the identity, no login). Nothing stops any client from
-claiming to be any `user_id`/`actor_user_id` — every endpoint still trusts
-whatever the client sends, unchanged from before.
+**What's still a deliberate simplification, not an oversight:**
+- Technicians stay identity-by-phone-number with no password — this
+  matches real SMS/MMS (Twilio never asks a phone for a password either;
+  the phone number *is* the identity), not a gap to close later.
+- `/api/sms/inbound` still doesn't require a bearer token — its real
+  security boundary is a Twilio webhook signature (see the SMS/MMS section
+  below), not a per-user session, matching what a real deployment's trust
+  model would actually be.
+- Accounts created without ever setting a password (seed/demo data, or one
+  created via "Add collaborator" on a teammate's behalf) stay reachable
+  through the login screen's "explore as an existing demo user" picker —
+  intentionally, so local demo/dev usage is unchanged — via a
+  `/{id}/demo-login` endpoint that only succeeds for a password-less
+  account. The first registration that supplies a real password for that
+  identity claims and locks it from then on (`test_register_without_password_stays_claimable`
+  exercises the full claim lifecycle). This is a strict improvement over the
+  prior state (where *every* account was reachable that way, forever), not
+  a new hole — an unclaimed identity was already fully impersonable before
+  this existed.
 
-**What real needs:** SSO/SAML via an IdP integration (WorkOS/Auth0 per §9)
-for engineers/reviewers, a real session/token instead of "store the user id
-in localStorage," and row-level security enforcing org/site/discipline
-scoping server-side so a client can't act as a user it isn't authenticated
-as — the registration/lookup logic built here wouldn't need to change, only
-what sits in front of it.
+**What real still needs:** SSO/SAML via an IdP integration (WorkOS/Auth0
+per §9) for engineers/reviewers instead of homegrown password auth, a
+refresh-token/revocation story (the current JWT can't be invalidated before
+it expires — fine for a 12h demo session, not for production), and
+row-level security enforcing org/site/discipline scoping server-side beyond
+"is this the right individual" (e.g. a reviewer on one site's queue
+shouldn't be able to `reply` on a flag routed to a completely different
+org's engineer just because they're both authenticated engineers — that
+cross-org check doesn't exist yet).
 
 ---
 

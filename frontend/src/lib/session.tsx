@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { User } from "./types";
-import { api } from "./api";
+import { api, setToken } from "./api";
 
 interface SessionState {
   currentEngineer: User | null;
@@ -52,6 +52,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       },
       logout: () => {
         localStorage.removeItem(STORAGE_KEY);
+        setToken(null);
         setCurrentEngineerState(null);
       },
     }),

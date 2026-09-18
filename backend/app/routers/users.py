@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
+from ..services import auth
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -18,6 +19,8 @@ MAX_AVATAR_BYTES = 5 * 1024 * 1024
 ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 
 REGISTERABLE_ROLES = {"engineer", "reviewer", "technician"}
+PASSWORD_ROLES = {"engineer", "reviewer", "admin"}
+MIN_PASSWORD_LEN = 8
 AVATAR_PALETTE = ["#3ee6c4", "#7aa2ff", "#ff9d5c", "#c792ea", "#f4c95d", "#ff7a7a", "#5ce6a6", "#6fd0ff"]
 
 
@@ -44,7 +47,7 @@ def get_user(user_id: str, db: Session = Depends(get_db)):
     return db.get(models.User, user_id)
 
 
-@router.post("/register", response_model=schemas.UserOut)
+@router.post("/register", response_model=schemas.AuthOut)
 def register(body: schemas.UserRegisterIn, db: Session = Depends(get_db)):
     role = body.role.strip().lower()
     if role not in REGISTERABLE_ROLES:
@@ -59,6 +62,10 @@ def register(body: schemas.UserRegisterIn, db: Session = Depends(get_db)):
         raise HTTPException(404, "Unknown project")
 
     is_technician = role == "technician"
+    password = "" if is_technician else (body.password or "").strip()
+    if password and len(password) < MIN_PASSWORD_LEN:
+        raise HTTPException(422, f"Password must be at least {MIN_PASSWORD_LEN} characters")
+
     if is_technician:
         if not body.phone or not body.phone.strip():
             raise HTTPException(422, "Phone is required for technicians")
@@ -75,7 +82,24 @@ def register(body: schemas.UserRegisterIn, db: Session = Depends(get_db)):
     if existing:
         # Signing up with an identity that already has an account joins the
         # new project(s) rather than erroring — the common real-world case
-        # of an engineer already registered elsewhere being added to a site.
+        # of an engineer already registered elsewhere being added to a site
+        # (or a teammate adding them via "Add collaborator", which doesn't
+        # collect a password on their behalf).
+        #
+        # But if that identity is already password-protected, re-registering
+        # with it must prove the password — otherwise "register again with
+        # someone else's email" would be a full account-takeover path (their
+        # session token, their flags, their inbox). An account with no
+        # password yet — seed data, or one created by a teammate's invite —
+        # stays claimable: the first registration that supplies a real
+        # password for it locks it down from then on, the same way it was
+        # already fully open to the "explore as a demo user" picker before
+        # this existed. That's a strict improvement, not a new hole.
+        if not is_technician and existing.password_hash:
+            if not password or not auth.verify_password(password, existing.password_hash):
+                raise HTTPException(401, "An account with that email already exists — sign in instead")
+        elif not is_technician and password:
+            existing.password_hash = auth.hash_password(password)
         merged = sorted(set(existing.site_ids or []) | set(body.site_ids))
         if merged != sorted(existing.site_ids or []):
             existing.site_ids = merged
@@ -83,9 +107,9 @@ def register(body: schemas.UserRegisterIn, db: Session = Depends(get_db)):
                 id=models.gen_id(), site_id=body.site_ids[0], actor=existing.name,
                 action="user_joined_project", detail=f"joined {len(body.site_ids)} project(s)",
             ))
-            db.commit()
-            db.refresh(existing)
-        return existing
+        db.commit()
+        db.refresh(existing)
+        return schemas.AuthOut(user=existing, access_token=auth.issue_token(existing))
 
     user = models.User(
         id=models.gen_id(), org_id=sites[0].org_id, role=role, name=name,
@@ -95,6 +119,7 @@ def register(body: schemas.UserRegisterIn, db: Session = Depends(get_db)):
         title=(body.title or "").strip() or None,
         avatar_color=_avatar_color_for(body.email or body.phone or name),
         site_ids=body.site_ids,
+        password_hash=auth.hash_password(password) if password else None,
     )
     db.add(user)
     db.add(models.AuditEvent(
@@ -103,10 +128,10 @@ def register(body: schemas.UserRegisterIn, db: Session = Depends(get_db)):
     ))
     db.commit()
     db.refresh(user)
-    return user
+    return schemas.AuthOut(user=user, access_token=auth.issue_token(user))
 
 
-@router.post("/login", response_model=schemas.UserOut)
+@router.post("/login", response_model=schemas.AuthOut)
 def login(body: schemas.UserLoginIn, db: Session = Depends(get_db)):
     role = body.role.strip().lower()
     identifier = body.identifier.strip()
@@ -126,11 +151,41 @@ def login(body: schemas.UserLoginIn, db: Session = Depends(get_db)):
         ).scalars().first()
     if not user:
         raise HTTPException(404, "No account found with that identifier — try creating one instead")
-    return user
+
+    # Real check: any account that has ever set a password must present it.
+    # Seeded/demo accounts with no password yet stay reachable by identifier
+    # alone (unchanged local-demo behavior) — but that's the *only* case
+    # this allows through without a password.
+    if role != "technician" and user.password_hash:
+        if not body.password or not auth.verify_password(body.password, user.password_hash):
+            raise HTTPException(401, "Incorrect password")
+
+    return schemas.AuthOut(user=user, access_token=auth.issue_token(user))
+
+
+@router.post("/{user_id}/demo-login", response_model=schemas.AuthOut)
+def demo_login(user_id: str, db: Session = Depends(get_db)):
+    """The "explore as an existing demo user" picker on the login screen —
+    real accounts still need a real password. This only issues a token for
+    an account that has never had a password set (seeded demo data, or a
+    technician's phone-identity account), which is exactly the population
+    the old one-click switcher was meant for. Anyone who has actually
+    registered with a password is not reachable through this endpoint."""
+    user = db.get(models.User, user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    if user.password_hash:
+        raise HTTPException(403, "This account is password-protected — sign in instead")
+    return schemas.AuthOut(user=user, access_token=auth.issue_token(user))
 
 
 @router.post("/{user_id}/avatar", response_model=schemas.UserOut)
-async def upload_avatar(user_id: str, file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def upload_avatar(
+    user_id: str, file: UploadFile = File(...), db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    if current_user.id != user_id and current_user.role not in ("reviewer", "admin"):
+        raise HTTPException(403, "Can't edit another user's avatar")
     user = db.get(models.User, user_id)
     if not user:
         raise HTTPException(404, "User not found")
@@ -157,7 +212,12 @@ async def upload_avatar(user_id: str, file: UploadFile = File(...), db: Session 
 
 
 @router.delete("/{user_id}/avatar", response_model=schemas.UserOut)
-def remove_avatar(user_id: str, db: Session = Depends(get_db)):
+def remove_avatar(
+    user_id: str, db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    if current_user.id != user_id and current_user.role not in ("reviewer", "admin"):
+        raise HTTPException(403, "Can't edit another user's avatar")
     user = db.get(models.User, user_id)
     if not user:
         raise HTTPException(404, "User not found")

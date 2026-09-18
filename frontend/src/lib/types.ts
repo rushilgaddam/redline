@@ -184,6 +184,12 @@ export interface KnowledgeSource {
   connected_at: string;
 }
 
+export interface AuthResult {
+  user: User;
+  access_token: string;
+  token_type: string;
+}
+
 export interface AssistantAnswer {
   text: string;
   flag_ids: string[];

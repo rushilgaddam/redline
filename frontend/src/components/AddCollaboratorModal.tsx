@@ -31,7 +31,7 @@ export function AddCollaboratorModal({
     setSubmitting(true);
     setError(null);
     try {
-      const u = await api.register({
+      const { user } = await api.register({
         role,
         name,
         email: isTechnician ? undefined : identifier,
@@ -40,7 +40,7 @@ export function AddCollaboratorModal({
         title: title || undefined,
         site_ids: [siteId],
       });
-      onAdded(u);
+      onAdded(user);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't add collaborator");
     } finally {
@@ -140,7 +140,9 @@ export function AddCollaboratorModal({
               </div>
             )}
             <p className="text-[10.5px] text-ink-500">
-              If this email or phone already has an account, they'll just be added to this project.
+              If this email or phone already has an unprotected account, they'll just be added to this
+              project. A password-protected account can't be added this way — ask them to sign in and
+              join themselves.
             </p>
             <button
               type="submit"

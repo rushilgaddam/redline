@@ -499,8 +499,8 @@ function TechnicianPicker({
     setSubmitting(true);
     setError(null);
     try {
-      const u = await api.register({ role: "technician", name, phone, site_ids: [siteId] });
-      onRegistered(u);
+      const { user } = await api.register({ role: "technician", name, phone, site_ids: [siteId] });
+      onRegistered(user);
       setOpen(false);
       setRegistering(false);
       setName("");

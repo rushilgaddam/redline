@@ -48,6 +48,11 @@ class User(Base):
     title: Mapped[str | None] = mapped_column(String, nullable=True)
     avatar_color: Mapped[str] = mapped_column(String, default="#3ee6c4")
     avatar_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    # bcrypt hash, engineer/reviewer/admin only — see services/auth.py. Null
+    # means "no password ever set": seeded demo accounts and every
+    # technician (phone-identity, no password, matching real SMS) stay in
+    # that state; a real registration always sets one.
+    password_hash: Mapped[str | None] = mapped_column(String, nullable=True)
     backup_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     out_of_office: Mapped[bool] = mapped_column(Boolean, default=False)
     site_ids: Mapped[list] = mapped_column(JSON, default=list)

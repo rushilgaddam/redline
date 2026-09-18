@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
-from ..services import ingest, title_block_ocr
+from ..services import auth, ingest, title_block_ocr
 
 router = APIRouter(prefix="/api/drawings", tags=["drawings-ingest"])
 
@@ -21,12 +21,16 @@ async def ingest_drawing(
     primary_author_id: str = Form(...),
     context_block: str = Form(""),
     db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
 ):
     if not db.get(models.Site, site_id):
         raise HTTPException(404, "Unknown site")
     author = db.get(models.User, primary_author_id)
     if not author or author.role not in ("engineer", "reviewer"):
         raise HTTPException(404, "Unknown engineer")
+    auth.require_engineer(current_user)
+    if current_user.id != author.id and current_user.role not in ("reviewer", "admin"):
+        raise HTTPException(403, "Can only ingest a drawing as yourself")
 
     data = await file.read()
     if len(data) > MAX_UPLOAD_BYTES:
@@ -68,7 +72,11 @@ async def ingest_drawing(
 
 
 @router.put("/{drawing_id}/regions", response_model=schemas.DrawingDetailOut)
-def update_regions(drawing_id: str, body: schemas.RegionsUpdateIn, db: Session = Depends(get_db)):
+def update_regions(
+    drawing_id: str, body: schemas.RegionsUpdateIn, db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    auth.require_engineer(current_user)
     drawing = db.get(models.Drawing, drawing_id)
     if not drawing:
         raise HTTPException(404, "Drawing not found")
@@ -100,17 +108,20 @@ def update_regions(drawing_id: str, body: schemas.RegionsUpdateIn, db: Session =
 
 
 @router.post("/{drawing_id}/confirm", response_model=schemas.DrawingDetailOut)
-def confirm_drawing(drawing_id: str, actor_user_id: str = Form(...), db: Session = Depends(get_db)):
+def confirm_drawing(
+    drawing_id: str, actor_user_id: str = Form(...), db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    auth.require_engineer(current_user)
     drawing = db.get(models.Drawing, drawing_id)
     if not drawing:
         raise HTTPException(404, "Drawing not found")
     if not drawing.regions:
         raise HTTPException(400, "Add at least one region before confirming")
 
-    actor = db.get(models.User, actor_user_id)
     drawing.confidence_floor_status = "verified"
     db.add(models.AuditEvent(
-        id=models.gen_id(), drawing_id=drawing.id, actor=actor.name if actor else "engineer",
+        id=models.gen_id(), drawing_id=drawing.id, actor=current_user.name,
         action="regions_confirmed", detail=f"{len(drawing.regions)} region(s)",
     ))
     db.commit()

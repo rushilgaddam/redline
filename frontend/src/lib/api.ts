@@ -1,6 +1,7 @@
 import type {
   AssistantAnswer,
   AuditEvent,
+  AuthResult,
   ConversationItem,
   DrawingDetail,
   DrawingSummary,
@@ -19,11 +20,32 @@ import type {
 } from "./types";
 
 const BASE = "/api";
+const TOKEN_KEY = "redline.access_token";
+
+// The server issues a signed session token on register/login (see
+// services/auth.py) — every request that acts as a specific engineer needs
+// to carry it, or the server has no way to tell the request apart from
+// anyone claiming to be that user. Technicians get a token too (issued the
+// same way) but the SMS-inbound path doesn't require one, matching a real
+// Twilio webhook's own trust boundary (signature-validated, not per-user).
+export function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token: string | null) {
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    headers: { "Content-Type": "application/json", ...authHeaders(), ...(init?.headers ?? {}) },
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
@@ -46,7 +68,7 @@ export const api = {
   uploadAvatar: async (userId: string, file: File): Promise<User> => {
     const body = new FormData();
     body.append("file", file);
-    const res = await fetch(`${BASE}/users/${userId}/avatar`, { method: "POST", body });
+    const res = await fetch(`${BASE}/users/${userId}/avatar`, { method: "POST", body, headers: authHeaders() });
     if (!res.ok) {
       const detail = await res.json().catch(() => null);
       throw new Error(detail?.detail ?? `${res.status} ${res.statusText}`);
@@ -62,9 +84,11 @@ export const api = {
     discipline?: string;
     title?: string;
     site_ids: string[];
-  }) => req<User>(`/users/register`, { method: "POST", body: JSON.stringify(payload) }),
-  login: (payload: { role: string; identifier: string }) =>
-    req<User>(`/users/login`, { method: "POST", body: JSON.stringify(payload) }),
+    password?: string;
+  }) => req<AuthResult>(`/users/register`, { method: "POST", body: JSON.stringify(payload) }),
+  login: (payload: { role: string; identifier: string; password?: string }) =>
+    req<AuthResult>(`/users/login`, { method: "POST", body: JSON.stringify(payload) }),
+  demoLogin: (userId: string) => req<AuthResult>(`/users/${userId}/demo-login`, { method: "POST" }),
 
   drawings: (siteId?: string) => req<DrawingSummary[]>(`/drawings${siteId ? `?site_id=${siteId}` : ""}`),
   drawing: (id: string) => req<DrawingDetail>(`/drawings/${id}`),
@@ -92,7 +116,7 @@ export const api = {
   }): Promise<IngestResult> => {
     const body = new FormData();
     for (const [k, v] of Object.entries(form)) body.append(k, v as string | Blob);
-    const res = await fetch(`${BASE}/drawings/ingest`, { method: "POST", body });
+    const res = await fetch(`${BASE}/drawings/ingest`, { method: "POST", body, headers: authHeaders() });
     if (!res.ok) {
       const detail = await res.json().catch(() => null);
       throw new Error(detail?.detail ?? `${res.status} ${res.statusText}`);
@@ -112,7 +136,7 @@ export const api = {
   confirmDrawing: async (drawingId: string, actorUserId: string): Promise<DrawingDetail> => {
     const body = new FormData();
     body.append("actor_user_id", actorUserId);
-    const res = await fetch(`${BASE}/drawings/${drawingId}/confirm`, { method: "POST", body });
+    const res = await fetch(`${BASE}/drawings/${drawingId}/confirm`, { method: "POST", body, headers: authHeaders() });
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
     return res.json();
   },

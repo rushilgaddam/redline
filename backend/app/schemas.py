@@ -26,11 +26,22 @@ class UserRegisterIn(BaseModel):
     discipline: str | None = None
     title: str | None = None
     site_ids: list[str] = []
+    # Required for engineer/reviewer/admin (real password auth — see
+    # services/auth.py); ignored for technician, which stays phone-identity
+    # only, matching real SMS.
+    password: str | None = None
 
 
 class UserLoginIn(BaseModel):
     role: str
     identifier: str
+    password: str | None = None
+
+
+class AuthOut(BaseModel):
+    user: UserOut
+    access_token: str
+    token_type: str = "bearer"
 
 
 class RegionOut(BaseModel):

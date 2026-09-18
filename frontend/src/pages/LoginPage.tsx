@@ -4,7 +4,7 @@ import { AlertCircle, Check, ChevronDown, HardHat, Loader2, Wrench } from "lucid
 import { motion, AnimatePresence } from "framer-motion";
 import { useSession } from "../lib/session";
 import { useStore } from "../lib/store";
-import { api } from "../lib/api";
+import { api, setToken } from "../lib/api";
 import { Avatar } from "../components/Avatar";
 import type { Site, User } from "../lib/types";
 
@@ -22,6 +22,7 @@ export function LoginPage() {
   const [role, setRole] = useState<FormRole>("engineer");
   const [sites, setSites] = useState<Site[]>([]);
   const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [discipline, setDiscipline] = useState("");
   const [title, setTitle] = useState("");
@@ -36,6 +37,7 @@ export function LoginPage() {
 
   function reset() {
     setIdentifier("");
+    setPassword("");
     setName("");
     setDiscipline("");
     setTitle("");
@@ -43,7 +45,8 @@ export function LoginPage() {
     setError(null);
   }
 
-  async function afterAuth(user: User) {
+  async function afterAuth(user: User, accessToken: string) {
+    setToken(accessToken);
     await refreshDrawings();
     if (user.role === "technician") {
       navigate("/technician", { state: { technicianId: user.id } });
@@ -59,8 +62,12 @@ export function LoginPage() {
     setSubmitting(true);
     setError(null);
     try {
-      const user = await api.login({ role: role === "reviewer" ? "engineer" : role, identifier });
-      afterAuth(user);
+      const { user, access_token } = await api.login({
+        role: role === "reviewer" ? "engineer" : role,
+        identifier,
+        password: isTechnician ? undefined : password,
+      });
+      afterAuth(user, access_token);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't sign in");
     } finally {
@@ -71,10 +78,14 @@ export function LoginPage() {
   async function submitRegister(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim() || !identifier.trim() || selectedSiteIds.length === 0) return;
+    if (!isTechnician && password.trim().length < 8) {
+      setError("Password must be at least 8 characters");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
-      const user = await api.register({
+      const { user, access_token } = await api.register({
         role,
         name,
         email: role === "technician" ? undefined : identifier,
@@ -82,8 +93,9 @@ export function LoginPage() {
         discipline: discipline || undefined,
         title: title || undefined,
         site_ids: selectedSiteIds,
+        password: isTechnician ? undefined : password,
       });
-      afterAuth(user);
+      afterAuth(user, access_token);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't create account");
     } finally {
@@ -185,6 +197,19 @@ export function LoginPage() {
                     className="w-full rounded-lg border border-ink-600 bg-ink-850 px-3 py-2 text-[13px] text-ink-100 placeholder:text-ink-500 focus:border-signal-blue/50 focus:outline-none"
                   />
                 </div>
+                {!isTechnician && (
+                  <div>
+                    <div className="mb-1 text-[11.5px] font-medium text-ink-300">Password</div>
+                    <input
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      type="password"
+                      autoComplete="current-password"
+                      className="w-full rounded-lg border border-ink-600 bg-ink-850 px-3 py-2 text-[13px] text-ink-100 placeholder:text-ink-500 focus:border-signal-blue/50 focus:outline-none"
+                    />
+                  </div>
+                )}
                 {error && (
                   <div className="flex items-start gap-1.5 text-[11.5px] text-signal-coral">
                     <AlertCircle size={13} className="mt-0.5 shrink-0" />
@@ -229,26 +254,39 @@ export function LoginPage() {
                   />
                 </div>
                 {!isTechnician && (
-                  <div className="grid grid-cols-2 gap-2">
+                  <>
                     <div>
-                      <div className="mb-1 text-[11.5px] font-medium text-ink-300">Discipline</div>
+                      <div className="mb-1 text-[11.5px] font-medium text-ink-300">Password</div>
                       <input
-                        value={discipline}
-                        onChange={(e) => setDiscipline(e.target.value)}
-                        placeholder="Electrical"
-                        className="w-full rounded-lg border border-ink-600 bg-ink-850 px-2.5 py-2 text-[12.5px] text-ink-100 placeholder:text-ink-500 focus:border-signal-blue/50 focus:outline-none"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="At least 8 characters"
+                        type="password"
+                        autoComplete="new-password"
+                        className="w-full rounded-lg border border-ink-600 bg-ink-850 px-3 py-2 text-[13px] text-ink-100 placeholder:text-ink-500 focus:border-signal-blue/50 focus:outline-none"
                       />
                     </div>
-                    <div>
-                      <div className="mb-1 text-[11.5px] font-medium text-ink-300">Title</div>
-                      <input
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        placeholder="Engineer II"
-                        className="w-full rounded-lg border border-ink-600 bg-ink-850 px-2.5 py-2 text-[12.5px] text-ink-100 placeholder:text-ink-500 focus:border-signal-blue/50 focus:outline-none"
-                      />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <div className="mb-1 text-[11.5px] font-medium text-ink-300">Discipline</div>
+                        <input
+                          value={discipline}
+                          onChange={(e) => setDiscipline(e.target.value)}
+                          placeholder="Electrical"
+                          className="w-full rounded-lg border border-ink-600 bg-ink-850 px-2.5 py-2 text-[12.5px] text-ink-100 placeholder:text-ink-500 focus:border-signal-blue/50 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <div className="mb-1 text-[11.5px] font-medium text-ink-300">Title</div>
+                        <input
+                          value={title}
+                          onChange={(e) => setTitle(e.target.value)}
+                          placeholder="Engineer II"
+                          className="w-full rounded-lg border border-ink-600 bg-ink-850 px-2.5 py-2 text-[12.5px] text-ink-100 placeholder:text-ink-500 focus:border-signal-blue/50 focus:outline-none"
+                        />
+                      </div>
                     </div>
-                  </div>
+                  </>
                 )}
                 <div>
                   <div className="mb-1 text-[11.5px] font-medium text-ink-300">Project(s)</div>
@@ -287,7 +325,13 @@ export function LoginPage() {
                 )}
                 <button
                   type="submit"
-                  disabled={submitting || !name.trim() || !identifier.trim() || selectedSiteIds.length === 0}
+                  disabled={
+                    submitting ||
+                    !name.trim() ||
+                    !identifier.trim() ||
+                    selectedSiteIds.length === 0 ||
+                    (!isTechnician && password.trim().length < 8)
+                  }
                   className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-signal-teal px-4 py-2.5 text-[13px] font-semibold text-ink-950 disabled:opacity-50"
                 >
                   {submitting && <Loader2 size={14} className="animate-spin" />}
@@ -315,15 +359,27 @@ export function LoginPage() {
                 className="overflow-hidden"
               >
                 <div className="glass-panel mt-3 space-y-1.5 rounded-2xl p-3">
+                  {error && (
+                    <div className="flex items-start gap-1.5 px-1 pb-1 text-[11.5px] text-signal-coral">
+                      <AlertCircle size={13} className="mt-0.5 shrink-0" />
+                      {error}
+                    </div>
+                  )}
                   {loading ? (
                     <div className="px-2 py-1 text-[12px] text-ink-500">Loading roster…</div>
                   ) : (
                     engineers.map((eng) => (
                       <button
                         key={eng.id}
-                        onClick={() => {
-                          setCurrentEngineer(eng);
-                          navigate("/inbox");
+                        onClick={async () => {
+                          try {
+                            const { user, access_token } = await api.demoLogin(eng.id);
+                            setToken(access_token);
+                            setCurrentEngineer(user);
+                            navigate("/inbox");
+                          } catch {
+                            setError("That account is password-protected now — sign in instead.");
+                          }
                         }}
                         className="flex w-full items-center gap-2.5 rounded-xl border border-ink-700 bg-ink-850/60 px-3 py-2 text-left hover:border-signal-blue/30"
                       >

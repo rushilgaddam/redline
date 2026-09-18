@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
+from ..services import auth
 from ..ws_manager import manager
 
 router = APIRouter(prefix="/api/flags", tags=["flags"])
@@ -44,19 +45,25 @@ def get_flag(flag_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/{flag_id}/reply", response_model=schemas.FlagDetailOut)
-async def reply_to_flag(flag_id: str, body: schemas.ReplyIn, db: Session = Depends(get_db)):
+async def reply_to_flag(
+    flag_id: str, body: schemas.ReplyIn, db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
     flag = db.get(models.Flag, flag_id)
     if not flag:
         raise HTTPException(404, "Flag not found")
-    actor = db.get(models.User, body.actor_user_id)
+    # The acting identity comes from the verified session token, never from
+    # the request body — a client can no longer put words in another
+    # engineer's mouth just by sending a different actor_user_id.
+    auth.require_engineer(current_user)
     msg = models.Message(
         id=models.gen_id(), flag_id=flag.id, sender="engineer",
-        sender_name=actor.name if actor else None, text=body.text,
+        sender_name=current_user.name, text=body.text,
     )
     db.add(msg)
     db.add(models.AuditEvent(
         id=models.gen_id(), flag_id=flag.id, drawing_id=flag.drawing_id,
-        actor=actor.name if actor else "engineer", action="replied", detail=body.text[:200],
+        actor=current_user.name, action="replied", detail=body.text[:200],
     ))
     db.commit()
     db.refresh(flag)
@@ -65,24 +72,24 @@ async def reply_to_flag(flag_id: str, body: schemas.ReplyIn, db: Session = Depen
 
 
 @router.post("/{flag_id}/resolve", response_model=schemas.FlagDetailOut)
-async def resolve_flag(flag_id: str, body: schemas.ReplyIn | None = None, db: Session = Depends(get_db)):
+async def resolve_flag(
+    flag_id: str, body: schemas.ReplyIn | None = None, db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
     flag = db.get(models.Flag, flag_id)
     if not flag:
         raise HTTPException(404, "Flag not found")
-    actor_name = "engineer"
-    if body and body.actor_user_id:
-        actor = db.get(models.User, body.actor_user_id)
-        actor_name = actor.name if actor else actor_name
-        if body.text:
-            db.add(models.Message(
-                id=models.gen_id(), flag_id=flag.id, sender="engineer",
-                sender_name=actor_name if actor_name != "engineer" else None, text=body.text,
-            ))
+    auth.require_engineer(current_user)
+    if body and body.text:
+        db.add(models.Message(
+            id=models.gen_id(), flag_id=flag.id, sender="engineer",
+            sender_name=current_user.name, text=body.text,
+        ))
     flag.status = "resolved"
     flag.resolved_at = datetime.now(timezone.utc)
     db.add(models.AuditEvent(
         id=models.gen_id(), flag_id=flag.id, drawing_id=flag.drawing_id,
-        actor=actor_name, action="resolved", detail="",
+        actor=current_user.name, action="resolved", detail="",
     ))
     db.commit()
     db.refresh(flag)

@@ -64,6 +64,15 @@ is — the server never trusts which image the client says it sent, only what OC
 and `backend/tests/test_title_block_ocr.py` for the accuracy test suite
 (`./venv/bin/pytest tests/test_title_block_ocr.py -v`).
 
+## Auth
+
+Engineers and reviewers sign in with a real password (bcrypt-hashed) and get back a
+signed JWT session token (12h expiry) that every mutating request has to carry. Set
+`REDLINE_JWT_SECRET` before running this anywhere but a laptop — without it the server
+falls back to a hardcoded dev secret and prints a warning on boot. Technicians stay
+identity-by-phone-number with no password, matching real SMS (a phone number *is* the
+identity there too). See MOCKS.md's Auth section for the full real-vs-mock boundary.
+
 ## Tracking what's mocked
 
 `MOCKS.md` is a living inventory of every place this prototype fakes something a real deployment
